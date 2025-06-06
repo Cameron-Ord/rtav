@@ -27,7 +27,7 @@ int main(int argc, char **argv) {
     fprintf(stdout, "Usage: ./3dmv <directory>\n");
     return 1;
   }
-  Entry *entries = read_directory(argv[1]);
+  Entries ents = read_directory(argv[1]);
   // parse_headers(entries);
 
   printf("%s\n", SHADER_PATH);

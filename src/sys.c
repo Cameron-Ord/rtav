@@ -7,23 +7,25 @@
 
 int close_directory(DIR *dirp) { return closedir(dirp); }
 
-Entry *read_directory(const char *path) {
+Entries read_directory(const char *path) {
   DIR *dirp = NULL;
   if (!(dirp = opendir(path))) {
     fprintf(stderr, "Could not open directory : %s\n", strerror(errno));
-    return NULL;
+    return (Entries){NULL, 0};
   }
 
-  Entry *entbuf = malloc(sizeof(Entry));
+  int size = 1;
+  Entry *entbuf = calloc(size, sizeof(Entry));
   if (!entbuf) {
     fprintf(stderr, "Could not allocate memory : %s\n", strerror(errno));
-    return NULL;
+    return (Entries){NULL, 0};
   }
+  Entries ents = {entbuf, size};
 
   fprintf(stdout, "====DIRSTART====\n");
 
   struct dirent *d_ent;
-  int i = 0, size = 1;
+  int i = 0;
   while ((d_ent = readdir(dirp)) != NULL) {
     if (!(d_ent->d_type == DT_REG)) {
       continue;
@@ -34,12 +36,11 @@ Entry *read_directory(const char *path) {
       Entry *tmp = realloc(entbuf, size * sizeof(Entry));
       if (!tmp) {
         fprintf(stderr, "Realloc failed : %s\n", strerror(errno));
-        return entbuf;
+        return ents;
       }
       entbuf = tmp;
     }
 
-    fprintf(stdout, "REGULAR FILE -> %s\n", d_ent->d_name);
     Entry *e = &entbuf[i];
 
     e->size = 0;
@@ -47,45 +48,18 @@ Entry *read_directory(const char *path) {
     e->namelen = strlen(d_ent->d_name);
     e->pathlen = strlen(path);
 
-    memset(e->path, 0, e->pathlen);
-    memset(e->name, 0, e->namelen);
+    snprintf(e->path, sizeof(e->path), "%s", path);
+    snprintf(e->name, sizeof(e->name), "%s", d_ent->d_name);
+    snprintf(e->fullpath, sizeof(e->fullpath), "%s/%s", path, d_ent->d_name);
 
-    if (!strncpy(e->path, path, e->pathlen * sizeof(char))) {
-      fprintf(stderr, "Failed to copy str : %s\n", strerror(errno));
-      return entbuf;
-    }
-
-    if (!strncpy(e->name, d_ent->d_name, e->namelen * sizeof(char))) {
-      fprintf(stderr, "Failed to copy str : %s\n", strerror(errno));
-      return entbuf;
-    }
-
-    const char *delimiter = "/";
-    const size_t dlen = strlen(delimiter);
-
-    memset(e->fullpath, 0, e->pathlen + e->namelen + dlen);
-
-    if (!strncpy(e->fullpath, e->path, e->pathlen)) {
-      fprintf(stderr, "Failed to copy str : %s\n", strerror(errno));
-      return entbuf;
-    }
-
-    if (!strncat(e->fullpath, delimiter, dlen)) {
-      fprintf(stderr, "Failed to copy str : %s\n", strerror(errno));
-      return entbuf;
-    }
-
-    if (!strncat(e->fullpath, e->name, e->namelen)) {
-      fprintf(stderr, "Failed to copy str : %s\n", strerror(errno));
-      return entbuf;
-    }
+    fprintf(stdout, "REGULAR FILE -> %s\n", e->fullpath);
 
     i++;
+    ents.size = i;
   }
 
-  entbuf->size = i;
   fprintf(stdout, "====DIREND====\n");
-  return entbuf;
+  return ents;
 }
 
 int parse_headers(Entry *ent) {
