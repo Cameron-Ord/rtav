@@ -6,7 +6,7 @@ project(3DMV VERSION 1.0)
 set(SRCS src/main.c)
 add_executable(3DMV ${SRCS})
 
-set(SHADER_DIR "/usr/local/share" CACHE PATH "Path to shader files")
+set(SHADER_DIR "/usr/local/share/3dmv" CACHE PATH "Path to shader files")
 target_compile_definitions(3DMV PRIVATE SHADER_PATH=\"${SHADER_DIR}\")
 message("Shader dir is: ${SHADER_DIR}")
 
