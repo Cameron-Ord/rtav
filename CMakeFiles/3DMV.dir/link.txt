@@ -1,1 +1,0 @@
-/usr/bin/cc CMakeFiles/3DMV.dir/src/main.c.o -o 3DMV  /usr/lib/x86_64-linux-gnu/libSDL2.so /usr/lib/x86_64-linux-gnu/libOpenGL.so /usr/lib/x86_64-linux-gnu/libGLEW.so /usr/lib/x86_64-linux-gnu/libsndfile.so 
