@@ -1,0 +1,3 @@
+/home/cameron/P/3dmv/CMakeFiles/3DMV.dir
+/home/cameron/P/3dmv/CMakeFiles/edit_cache.dir
+/home/cameron/P/3dmv/CMakeFiles/rebuild_cache.dir
