@@ -3,7 +3,7 @@ project(3DMV VERSION 1.0)
 #define 3DMV_VERSION_MAJOR @3DMV_VERSION_MAJOR@
 #define 3DMV_VERSION_MINOR @3DMV_VERSION_MINOR@
 
-set(SRCS src/main.c src/sys.c src/audio.c)
+set(SRCS src/main.c src/sys.c src/audio.c src/matrix.c)
 add_executable(3DMV ${SRCS})
 
 set(SHADER_DIR "/usr/local/share/3dmv" CACHE PATH "Path to shader files")
@@ -31,5 +31,5 @@ if(NOT GLEW_LIB)
     message(FATAL_ERROR "libGLEW not found!")
 endif()
 
-set(LIBS ${SDL2_LIB} ${OPENGL_LIB} ${GLEW_LIB} ${SND_LIB})
+set(LIBS ${SDL2_LIB} ${OPENGL_LIB} ${GLEW_LIB} ${SND_LIB} m)
 target_link_libraries(3DMV PRIVATE ${LIBS})

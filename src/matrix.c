@@ -2,6 +2,14 @@
 #include <math.h>
 #include <stdio.h>
 
+Matrix translate_mat(const float x, const float y, const float z) {
+  Matrix m = identity();
+  m.m12 += x;
+  m.m13 += y;
+  m.m14 += z;
+  return m;
+}
+
 Matrix identity(void) {
   Matrix id = {
       1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,

@@ -7,10 +7,19 @@
 
 #include "audio.h"
 #include "entry.h"
+#include "matrix.h"
 
 #include <GL/gl.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
+
+typedef struct {
+  unsigned int VBO, VAO, EBO;
+  unsigned int shader;
+  Matrix proj;
+  Matrix model;
+  Matrix view;
+} glData;
 
 static FILE *open_file(const char *shader_path, const char *fn);
 static int compile_shader(const char *src, unsigned int *shader, GLenum type);
@@ -19,11 +28,13 @@ static SDL_Window *make_window(void);
 static unsigned int attach_shaders(const unsigned int *fshader,
                                    const unsigned int *vshader);
 static int check_link_state(const unsigned int *program);
-static void gl_viewport_update(SDL_Window *w);
+static void gl_viewport_update(SDL_Window *w, int *ww, int *wh);
 static AParams *begin_audio_file(const Entry *const e);
 static AParams *__begin_bad(AParams *p);
 static AParams *__begin_ok(AParams *p);
 static void *free_params(AParams *p);
+
+static void gl_data_construct(glData *gd);
 
 int main(int argc, char **argv) {
 
@@ -97,6 +108,10 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  // Track and set dimension values
+  int ww, wh;
+  gl_viewport_update(win, &ww, &wh);
+
   if (!SDL_GL_CreateContext(win)) {
     fprintf(stderr, "Failed to create OpenGL context : %s\n", SDL_GetError());
     return 1;
@@ -115,14 +130,16 @@ int main(int argc, char **argv) {
   compile_shader(vertex_src, &vshader, GL_VERTEX_SHADER);
   compile_shader(frag_src, &fshader, GL_FRAGMENT_SHADER);
 
-  unsigned int sprogram = attach_shaders(&fshader, &vshader);
+  glData gd = {0};
+  gd.shader = attach_shaders(&fshader, &vshader);
 
   glDeleteShader(fshader);
   glDeleteShader(vshader);
 
-  if (!check_link_state(&sprogram)) {
+  if (!check_link_state(&gd.shader)) {
     return 1;
   }
+  gl_data_construct(&gd);
 
   Entry *const estart = ents.list;
   Entry *const eend = ents.list + ents.size;
@@ -130,11 +147,10 @@ int main(int argc, char **argv) {
 
   AParams *p = begin_audio_file(current);
 
-  gl_viewport_update(win);
   SDL_ShowWindow(win);
-
   int song_queued = 0;
   int run = 1;
+
   while (run) {
     const uint32_t start = SDL_GetTicks64();
 
@@ -163,10 +179,10 @@ int main(int argc, char **argv) {
       case SDL_WINDOWEVENT: {
         switch (e.window.event) {
         case SDL_WINDOWEVENT_RESIZED: {
-          gl_viewport_update(win);
+          gl_viewport_update(win, &ww, &wh);
         } break;
         case SDL_WINDOWEVENT_SIZE_CHANGED: {
-          gl_viewport_update(win);
+          gl_viewport_update(win, &ww, &wh);
         } break;
         }
       } break;
@@ -175,6 +191,27 @@ int main(int argc, char **argv) {
       } break;
       }
     }
+
+    Matrix proj = pers_mat(45.0f, (float)ww / wh, 0.1f, 100.0f);
+    Matrix model = identity();
+    Matrix view = identity();
+    model = multiply_mat(model, translate_mat(0.0f, 0.0f, -3.0f));
+
+    glUseProgram(gd.shader);
+
+    unsigned int cloc = glGetUniformLocation(gd.shader, "colour");
+    unsigned int mloc = glGetUniformLocation(gd.shader, "model");
+    unsigned int vloc = glGetUniformLocation(gd.shader, "view");
+    unsigned int ploc = glGetUniformLocation(gd.shader, "projection");
+
+    glUniformMatrix4fv(mloc, 1, GL_TRUE, &model.m0);
+    glUniformMatrix4fv(vloc, 1, GL_TRUE, &view.m0);
+    glUniformMatrix4fv(ploc, 1, GL_TRUE, &proj.m0);
+    glUniform4f(cloc, 1.0f, 1.0f, 1.0f, 1.0f);
+
+    glBindVertexArray(gd.VAO);
+    glDrawElements(GL_LINES, 24, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
 
     SDL_GL_SwapWindow(win);
 
@@ -270,10 +307,10 @@ static FILE *open_file(const char *path, const char *fn) {
   return file;
 }
 
-static void gl_viewport_update(SDL_Window *w) {
-  int width, height;
-  SDL_GetWindowSize(w, &width, &height);
-  glViewport(0, 0, width, height);
+static void gl_viewport_update(SDL_Window *w, int *ww, int *wh) {
+  SDL_GetWindowSize(w, ww, wh);
+  fprintf(stdout, "Output updated w: %d h: %d\n", *ww, *wh);
+  glViewport(0, 0, *ww, *wh);
 }
 
 static AParams *__begin_bad(AParams *p) {
@@ -315,4 +352,77 @@ static void *free_params(AParams *p) {
     free(p);
   }
   return NULL;
+}
+
+static void gl_data_construct(glData *gd) {
+
+  // 1.618 golden ratio
+  // 12 vertices 20 faces icosahedron
+  // const float g = (1.0 + sqrt(5.0)) / 2.0;
+  // const float scaled = 1.0 / sqrt(1.0 + g * g);
+
+  // const float x = scaled;
+  // const float y = g * scaled;
+
+  const float vertices[] = {
+      // top 0
+      0.0f,
+      1.0f,
+      0.0f,
+      // bottom 1
+      0.0f,
+      -1.0f,
+      0.0f,
+      // front 2
+      0.0f,
+      0.0f,
+      1.0f,
+      // back 3
+      0.0f,
+      0.0f,
+      -1.0f,
+      // left 4
+      -1.0f,
+      0.0f,
+      0.0f,
+      // right 5
+      1.0f,
+      0.0f,
+      0.0f,
+  };
+
+  unsigned int indices[] = {// top font right
+                            0, 2, 5,
+                            // top right back
+                            0, 5, 3,
+                            // top back left
+                            0, 3, 4,
+                            // top left front
+                            0, 4, 2,
+
+                            // bottom right front
+                            1, 5, 2,
+                            // bottom back right
+                            1, 3, 5,
+                            // bottom left back
+                            1, 4, 3,
+                            // bottom front left
+                            1, 2, 4};
+
+  glGenVertexArrays(1, &gd->VAO);
+
+  glGenBuffers(1, &gd->VBO);
+  glGenBuffers(1, &gd->EBO);
+
+  glBindVertexArray(gd->VAO);
+
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gd->EBO);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices,
+               GL_STATIC_DRAW);
+  glBindBuffer(GL_ARRAY_BUFFER, gd->VBO);
+  // Data doesnt change
+  glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+  glEnableVertexAttribArray(0);
 }
