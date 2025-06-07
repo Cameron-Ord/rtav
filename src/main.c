@@ -99,7 +99,6 @@ int main(int argc, char **argv) {
     fprintf(stderr, "Could not initialize SDL2: %s\n", SDL_GetError());
     return 1;
   }
-
   sdl_gl_set_flags();
 
   SDL_Window *win = NULL;
@@ -107,10 +106,6 @@ int main(int argc, char **argv) {
     fprintf(stderr, "Failed to create window : %s\n", SDL_GetError());
     return 1;
   }
-
-  // Track and set dimension values
-  int ww, wh;
-  gl_viewport_update(win, &ww, &wh);
 
   if (!SDL_GL_CreateContext(win)) {
     fprintf(stderr, "Failed to create OpenGL context : %s\n", SDL_GetError());
@@ -122,6 +117,9 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  // Track and set dimension values
+  int ww, wh;
+  gl_viewport_update(win, &ww, &wh);
   glEnable(GL_BLEND | GL_DEPTH_TEST);
 
   unsigned int vshader;
