@@ -3,7 +3,7 @@ project(3DMV VERSION 1.0)
 #define 3DMV_VERSION_MAJOR @3DMV_VERSION_MAJOR@
 #define 3DMV_VERSION_MINOR @3DMV_VERSION_MINOR@
 
-set(SRCS src/main.c src/sys.c)
+set(SRCS src/main.c src/sys.c src/audio.c)
 add_executable(3DMV ${SRCS})
 
 set(SHADER_DIR "/usr/local/share/3dmv" CACHE PATH "Path to shader files")

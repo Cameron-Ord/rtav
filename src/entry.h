@@ -13,15 +13,15 @@ typedef struct {
   size_t namelen;
   size_t pathlen;
   int is_audio_file;
-  size_t size;
 } Entry;
 
 typedef struct {
   Entry *list;
   size_t size;
+  int malformed;
 } Entries;
 
-int parse_headers(Entry *ent);
+int parse_headers(Entries *ent);
 Entries read_directory(const char *path);
 int close_directory(DIR *dirp);
 #endif

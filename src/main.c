@@ -5,8 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "audio.h"
 #include "entry.h"
-#include "matrix.h"
 
 #include <GL/gl.h>
 #include <SDL2/SDL.h>
@@ -20,15 +20,36 @@ static unsigned int attach_shaders(const unsigned int *fshader,
                                    const unsigned int *vshader);
 static int check_link_state(const unsigned int *program);
 static void gl_viewport_update(SDL_Window *w);
+static AParams *begin_audio_file(const Entry *const e);
+static AParams *__begin_bad(AParams *p);
+static AParams *__begin_ok(AParams *p);
+static void *free_params(AParams *p);
 
 int main(int argc, char **argv) {
 
-  if (argc < 2) {
+  if (argc < 2 || argc > 2) {
     fprintf(stdout, "Usage: ./3dmv <directory>\n");
+    return 0;
+  }
+
+  const char *directory = argv[1];
+  Entries ents = read_directory(directory);
+
+  if (ents.size == 0) {
+    fprintf(stdout, "Empty/Non-existant diretory\n");
+    return 0;
+  }
+
+  // Todo : cleanup if this happens.
+  if (ents.malformed) {
+    fprintf(stderr, "Error occured while reading dir entries\n");
     return 1;
   }
-  Entries ents = read_directory(argv[1]);
-  // parse_headers(entries);
+
+  if (parse_headers(&ents) == 0) {
+    fprintf(stdout, "Directory contains no audio files\n");
+    return 1;
+  }
 
   printf("%s\n", SHADER_PATH);
   FILE *vert = NULL;
@@ -67,6 +88,7 @@ int main(int argc, char **argv) {
     fprintf(stderr, "Could not initialize SDL2: %s\n", SDL_GetError());
     return 1;
   }
+
   sdl_gl_set_flags();
 
   SDL_Window *win = NULL;
@@ -102,12 +124,33 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  Entry *const estart = ents.list;
+  Entry *const eend = ents.list + ents.size;
+  Entry *current = ents.list;
+
+  AParams *p = begin_audio_file(current);
+
   gl_viewport_update(win);
   SDL_ShowWindow(win);
 
+  int song_queued = 0;
   int run = 1;
   while (run) {
     const uint32_t start = SDL_GetTicks64();
+
+    if (p && !callback_check_pos(p->len, p->position)) {
+      audio_end();
+      p = free_params(p);
+      song_queued = 1;
+    }
+
+    if (!p && song_queued) {
+      current = (current + 1 != eend) ? current + 1 : estart;
+      if ((p = begin_audio_file(current))) {
+        song_queued = 0;
+      }
+    }
+
     glClearColor(0.0, 0.0, 0.0, 1.0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -134,6 +177,7 @@ int main(int argc, char **argv) {
     }
 
     SDL_GL_SwapWindow(win);
+
     const uint32_t duration = SDL_GetTicks64() - start;
     const uint32_t delta = 1000 / 60;
 
@@ -230,4 +274,45 @@ static void gl_viewport_update(SDL_Window *w) {
   int width, height;
   SDL_GetWindowSize(w, &width, &height);
   glViewport(0, 0, width, height);
+}
+
+static AParams *__begin_bad(AParams *p) {
+  const int cond = p != NULL;
+  switch (cond) {
+  default: {
+    return NULL;
+  } break;
+
+  case 1: {
+    return free_params(p);
+  } break;
+  }
+}
+
+static AParams *__begin_ok(AParams *p) {
+  audio_start();
+  return p;
+}
+
+static AParams *begin_audio_file(const Entry *const e) {
+  if (e && e->is_audio_file) {
+    AParams *p = read_file(e->fullpath);
+    if ((p && p->valid) && dev_from_data(p)) {
+      return __begin_ok(p);
+    } else {
+      return __begin_bad(p);
+    }
+  }
+  return NULL;
+}
+
+static void *free_params(AParams *p) {
+  if (p) {
+    if (p->buffer) {
+      free(p->buffer);
+    }
+
+    free(p);
+  }
+  return NULL;
 }
