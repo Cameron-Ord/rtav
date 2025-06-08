@@ -101,6 +101,20 @@ Matrix multiply_mat(Matrix a, Matrix b) {
   return result;
 }
 
+Matrix ortho_mat(const float left, const float right, const float bottom,
+                 const float top, const float near, const float far) {
+  Matrix mat = identity();
+  mat.m0 = 2.0 / (right - left);
+  mat.m5 = 2.0 / (top - bottom);
+  mat.m10 = -2.0 / (far - near);
+
+  mat.m12 = -(right + left) / (right - left);
+  mat.m13 = -(top + bottom) / (top - bottom);
+  mat.m14 = -(far + near) / (far - near);
+
+  return mat;
+}
+
 Matrix pers_mat(const float deg, const float aspect_ratio, const float near,
                 const float far) {
   Matrix mat = identity();

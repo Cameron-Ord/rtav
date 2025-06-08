@@ -43,24 +43,22 @@ static float clampf(const float min, const float max, const float sample) {
 // Todo make each sample a cube, and use FFT
 void gl_draw_buffer(Renderer_Data *rd, const float *sums, const int bcount,
                     const int ww, const int wh) {
+
+  const int cw = ww / bcount;
+
   static float rangle;
   for (int i = 0; i < bcount; i++) {
-    const float angle = (2.0 * PI * i) / bcount;
-
-    float radius = 3.75f;
-    const float x = cosf(angle) * radius;
-    const float y = sinf(angle) * radius;
-
-    Matrix proj = pers_mat(45.0f, (float)ww / wh, 0.1f, 100.0f);
+    const float x = i * cw + cw / 2.0;
+    Matrix proj = ortho_mat(0, ww, 0, wh, -1000, 1000);
     Matrix view = identity();
     Matrix model = identity();
 
-    Matrix rotx = rotate_matx(rangle + sums[i]);
-    Matrix roty = rotate_maty(rangle + sums[i]);
+    Matrix rotx = rotate_matx(rangle);
+    Matrix roty = rotate_maty(rangle);
 
-    model = multiply_mat(scale_mat(clampf(0.5, 1.1f, 1.0f * sums[i])), model);
+    model = multiply_mat(scale_mat(cw * 0.75), model);
     model = multiply_mat(multiply_mat(rotx, roty), model);
-    model = multiply_mat(translate_mat(x, y, -10.0), model);
+    model = multiply_mat(translate_mat((float)x, (float)wh / 2, 0.0), model);
 
     const unsigned int sid = rd->shader_program_id;
     glUseProgram(sid);
@@ -73,18 +71,10 @@ void gl_draw_buffer(Renderer_Data *rd, const float *sums, const int bcount,
     glUniformMatrix4fv(mloc, 1, GL_TRUE, &model.m0);
     glUniformMatrix4fv(vloc, 1, GL_TRUE, &view.m0);
     glUniformMatrix4fv(ploc, 1, GL_TRUE, &proj.m0);
-    glUniform4f(cloc, 0.376, 0.102, 0.82, clampf(0.25, 1.0, 1.0f * sums[i]));
+    glUniform4f(cloc, 0.376, 0.102, 0.82, 1.0f);
 
     glBindVertexArray(rd->VAO);
     glDrawArrays(GL_TRIANGLES, 0, 36);
-
-    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-    glLineWidth(2.0f);
-    glUniform4f(cloc, 0.0, 0.0, 0.0, 1.0f);
-
-    glDrawArrays(GL_TRIANGLES, 0, 36);
-
-    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
   }
   rangle = (rangle + 1.0f > 360.0f) ? rangle - 360.0f : rangle + 1.0f;
 }
