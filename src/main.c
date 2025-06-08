@@ -4,7 +4,9 @@
 
 #include "audio.h"
 #include "entry.h"
+#include "fft.h"
 #include "renderer.h"
+
 #include <GL/gl.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
@@ -21,6 +23,7 @@ static int query_audio_position(AParams **p);
 static AParams *_next(int *attempts, Entry *current);
 static void *free_params(AParams *p);
 static void _fail(int *run, const int attempts);
+static uint32_t _scount(const uint32_t remaining);
 
 int main(int argc, char **argv) {
   srand(time(NULL));
@@ -86,12 +89,14 @@ int main(int argc, char **argv) {
   Entry *const estart = ents.list;
   Entry *const eend = ents.list + ents.size;
   Entry *current = ents.list;
-
   AParams *p = begin_audio_file(current);
-  float sample_buffer[BUFFER_SIZE];
-  memset(sample_buffer, 0, BUFFER_SIZE * sizeof(float));
+
+  float hambuf[BUFFER_SIZE];
+  memset(hambuf, 0, sizeof(float) * BUFFER_SIZE);
+  calculate_window(hambuf);
 
   SDL_ShowWindow(win);
+
   const int MAX_ATTEMPTS = 6;
   int song_queued = 0, attempts = 0;
   int run = 1;
@@ -111,14 +116,48 @@ int main(int argc, char **argv) {
       }
     }
 
-    float rms = 0.0f;
+    // Obviously this is subject to change
+    float sample_buffer[BUFFER_SIZE];
+    Compf out_buffer[BUFFER_SIZE];
+    float out_half[BUFFER_SIZE / 2];
+
+    memset(sample_buffer, 0, BUFFER_SIZE * sizeof(float));
+    memset(out_half, 0, (BUFFER_SIZE / 2) * sizeof(float));
+    memset(out_buffer, 0, BUFFER_SIZE * sizeof(Compf));
+
     if (p && p->buffer && get_audio_state() == SDL_AUDIO_PLAYING) {
       const uint32_t remaining = p->len - p->position;
-      const uint32_t scount =
-          (BUFFER_SIZE < remaining) ? BUFFER_SIZE : remaining;
+      const uint32_t scount = _scount(remaining);
       const float *const buffer_at = p->buffer + p->position;
       memcpy(sample_buffer, buffer_at, scount * sizeof(float));
-      rms = root_mean_squared(sample_buffer, BUFFER_SIZE);
+      iter_fft(sample_buffer, hambuf, out_buffer, BUFFER_SIZE);
+
+      for (size_t i = 0; i < BUFFER_SIZE / 2; i++) {
+        const Compf *const c = &out_buffer[i];
+        out_half[i] = sqrtf(c->real * c->real + c->imag * c->imag);
+      }
+      const int bin_count = 10;
+      // 11 elements with the last value being the sentinel
+      const float bins[] = {20,   40,   80,   160,   320,  640,
+                            1280, 2560, 5120, 10240, 20480};
+      float sums[bin_count];
+      memset(sums, 0, sizeof(float) * bin_count);
+
+      for (int i = 0; i < BUFFER_SIZE / 2; i++) {
+        float freq = i * (float)p->sr / BUFFER_SIZE;
+        for (int j = 0; j < bin_count; j++) {
+          if (freq >= bins[j] && freq < bins[j + 1]) {
+            sums[j] += out_half[i];
+            break;
+          }
+        }
+      }
+
+      printf("==BIN BEGIN==\n");
+      for (int i = 0; i < bin_count; i++) {
+        printf("%.3f\n", sums[i]);
+      }
+      printf("==BIN END==\n");
     }
 
     glClearColor(0.0, 0.0, 0.0, 0.0);
@@ -146,7 +185,7 @@ int main(int argc, char **argv) {
       }
     }
 
-    gl_draw_buffer(&rd, rms, ww, wh);
+    gl_draw_buffer(&rd, 0.0, ww, wh);
     SDL_GL_SwapWindow(win);
 
     const uint32_t duration = SDL_GetTicks64() - start;
@@ -239,4 +278,8 @@ static AParams *_next(int *attempts, Entry *current) {
 static void _fail(int *run, const int attempts) {
   *run = 0;
   fprintf(stderr, "Gave up after %d attempts to load a file\n", attempts);
+}
+
+static uint32_t _scount(const uint32_t remaining) {
+  return (BUFFER_SIZE < remaining) ? BUFFER_SIZE : remaining;
 }
