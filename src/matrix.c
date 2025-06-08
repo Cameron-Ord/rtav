@@ -1,6 +1,9 @@
 #include "matrix.h"
 #include <math.h>
+#include <stdint.h>
 #include <stdio.h>
+
+#include <SDL2/SDL_timer.h>
 
 Matrix translate_mat(const float x, const float y, const float z) {
   Matrix m = identity();
@@ -15,6 +18,45 @@ Matrix identity(void) {
       1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
       0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f,
   };
+  return id;
+}
+
+Matrix rotate_maty(const float angle) {
+  // Yeah I read the raylib src code what about u bich
+  const float c = cosf(angle * DEG2RAD);
+  const float s = sinf(angle * DEG2RAD);
+
+  Matrix m = identity();
+  m.m0 = c;
+  m.m2 = -s;
+  m.m8 = s;
+  m.m10 = c;
+
+  return m;
+}
+
+Matrix rotate_matx(const float angle) {
+  // Yeah I read the raylib src code what about u bich
+  const float c = cosf(angle * DEG2RAD);
+  const float s = sinf(angle * DEG2RAD);
+
+  Matrix m = identity();
+  m.m5 = c;
+  m.m9 = -s;
+  m.m6 = s;
+  m.m10 = c;
+
+  return m;
+}
+
+Matrix rms_identity(const float str) {
+  const float scale = 1.0f * str; // interpolate_str(strength);
+
+  Matrix id = {
+      scale, 0.0f, 0.0f,  0.0f, 0.0f, scale, 0.0f, 0.0f,
+      0.0f,  0.0f, scale, 0.0f, 0.0f, 0.0f,  0.0f, 1.0f,
+  };
+
   return id;
 }
 

@@ -1,0 +1,269 @@
+#include <GL/glew.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "matrix.h"
+#include "renderer.h"
+
+#include <GL/gl.h>
+#include <SDL2/SDL_timer.h>
+#include <SDL2/SDL_video.h>
+
+const size_t SHADER_SRC_MAX = 2048;
+static int shader_src_fill(FILE *file, char *srcbuf);
+
+static float interpolate_rms(const float rms) {
+  static float smoothed;
+  const float sfactor = 0.25;
+  return (smoothed = smoothed * (1.0f - sfactor) + rms * sfactor);
+}
+
+static float interpolate_str(const float str) {
+  static float smoothed;
+  const float sfactor = 0.25;
+  return (smoothed = smoothed * (1.0f - sfactor) + str * sfactor);
+}
+
+static float throw_intensity(const float rms) {
+  static float last;
+  static uint32_t last_throw_time;
+
+  const uint32_t cd = 150; // ms
+  const uint32_t now = SDL_GetTicks64();
+
+  const float threshold = 0.0f;
+  const float diff = rms - last;
+  last = rms;
+
+  if (diff >= threshold && (now - last_throw_time) >= cd) {
+    last_throw_time = now;
+    return 1.75;
+  }
+
+  return 0.5;
+}
+
+static int shader_src_fill(FILE *file, char *srcbuf) {
+  int i = 0;
+  if (file && srcbuf) {
+    memset(srcbuf, 0, SHADER_SRC_MAX * sizeof(char));
+    while (fread(&srcbuf[i], 1, 1, file) > 0 && i < SHADER_SRC_MAX) {
+      i++;
+    }
+    srcbuf[i] = '\0';
+    fprintf(stdout, "\nLOADED SHADER:\n%s\n", srcbuf);
+    fclose(file);
+  }
+  return i;
+}
+
+int incrementing = 1;
+void gl_draw_buffer(Renderer_Data *rd, const float rms, const int ww,
+                    const int wh) {
+  static float angle;
+  if (incrementing && angle > 180.0f) {
+    incrementing = 0;
+  } else if (!incrementing && angle < -180.0f) {
+    incrementing = 1;
+  }
+
+  const float irms = interpolate_rms(rms);
+  const float str = 1.0f + powf(irms, 0.5) * throw_intensity(irms);
+
+  Matrix proj = pers_mat(45.0f, (float)ww / wh, 0.1f, 100.0f);
+  Matrix model = rms_identity(interpolate_str(str));
+  Matrix view = identity();
+
+  model = multiply_mat(model, translate_mat(0.0f, 0.0f, -3.0f));
+  Matrix x = rotate_matx(angle);
+  Matrix y = rotate_maty(angle);
+  model = multiply_mat(model, multiply_mat(x, y));
+
+  const unsigned int sid = rd->shader_program_id;
+  glUseProgram(sid);
+
+  unsigned int cloc = glGetUniformLocation(sid, "colour");
+  unsigned int mloc = glGetUniformLocation(sid, "model");
+  unsigned int vloc = glGetUniformLocation(sid, "view");
+  unsigned int ploc = glGetUniformLocation(sid, "projection");
+
+  glUniformMatrix4fv(mloc, 1, GL_TRUE, &model.m0);
+  glUniformMatrix4fv(vloc, 1, GL_TRUE, &view.m0);
+  glUniformMatrix4fv(ploc, 1, GL_TRUE, &proj.m0);
+  glUniform4f(cloc, 0.376, 0.102, 0.82, 1.0f);
+
+  glBindVertexArray(rd->VAO);
+  glDrawArrays(GL_TRIANGLES, 0, 36);
+  if (incrementing) {
+    angle += 0.025;
+  } else {
+    angle -= 0.025;
+  }
+}
+
+void sdl_gl_set_flags(void) {
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+}
+
+void gl_viewport_update(SDL_Window *w, int *ww, int *wh) {
+  SDL_GetWindowSize(w, ww, wh);
+  glViewport(0, 0, *ww, *wh);
+}
+
+int check_link_state(const unsigned int *program_id) {
+  int status;
+  char log[512];
+  glGetProgramiv(*program_id, GL_LINK_STATUS, &status);
+  if (!status) {
+    glGetProgramInfoLog(*program_id, 512, NULL, log);
+    fprintf(stderr, "Shader linking failed : %s\n", log);
+    return 0;
+  }
+  return 1;
+}
+
+FILE *open_shader_src(const char *path, const char *fn) {
+  const size_t spathlen = strlen(path);
+  const size_t fnlen = strlen(fn);
+
+  char *fullpath = malloc(spathlen + fnlen + 1);
+  if (!fullpath) {
+    fprintf(stderr, "Could not allocate memory: %s\n", strerror(errno));
+    return NULL;
+  }
+  memset(fullpath, 0, spathlen + fnlen);
+
+  strncpy(fullpath, path, spathlen);
+  strncat(fullpath, fn, fnlen);
+
+  fullpath[spathlen + fnlen] = '\0';
+
+  printf("Opening: %s of path %s\n", fn, path);
+  FILE *file = fopen(fullpath, "r");
+  if (!file) {
+    fprintf(stderr, "Could not open file: %s\n", strerror(errno));
+    return NULL;
+  }
+
+  free(fullpath);
+  return file;
+}
+
+Renderer_Data load_shaders(void) {
+  // Assume it's failed until its proven otherwise
+  Renderer_Data rd = {0, 0, 0, 0, 1};
+  FILE *fvert = NULL;
+  FILE *ffrag = NULL;
+
+  if (!(ffrag = open_shader_src(SHADER_PATH, "/frag.fs"))) {
+    return rd;
+  }
+
+  if (!(fvert = open_shader_src(SHADER_PATH, "/vert.vs"))) {
+    return rd;
+  }
+
+  char vertex_src[SHADER_SRC_MAX];
+  char frag_src[SHADER_SRC_MAX];
+
+  const int vread = shader_src_fill(fvert, vertex_src);
+  const int fread = shader_src_fill(ffrag, frag_src);
+  if (!vread || !fread) {
+    fprintf(stderr, "Empty shader src\n");
+    return rd;
+  }
+
+  unsigned int vs, fs;
+  if (!compile_shader(vertex_src, &vs, GL_VERTEX_SHADER)) {
+    return rd;
+  }
+
+  if (!compile_shader(frag_src, &fs, GL_FRAGMENT_SHADER)) {
+    return rd;
+  }
+
+  rd.shader_program_id = attach_shaders(&fs, &vs);
+  glDeleteShader(vs);
+  glDeleteShader(fs);
+
+  if (!check_link_state(&rd.shader_program_id)) {
+    return rd;
+  }
+
+  rd.broken = 0;
+  return rd;
+}
+
+unsigned int attach_shaders(unsigned int *fs, unsigned int *vs) {
+  unsigned int program = glCreateProgram();
+  glAttachShader(program, *fs);
+  glAttachShader(program, *vs);
+  glLinkProgram(program);
+  return program;
+}
+
+int compile_shader(const char *src, unsigned int *shader, unsigned int type) {
+  const GLchar *glsrc = src;
+
+  *shader = glCreateShader(type);
+  glShaderSource(*shader, 1, &glsrc, NULL);
+  glCompileShader(*shader);
+
+  int result;
+  char log[512];
+
+  glGetShaderiv(*shader, GL_COMPILE_STATUS, &result);
+  if (!result) {
+    glGetShaderInfoLog(*shader, 512, NULL, log);
+    fprintf(stderr, "Shader compilation failed: %s\n", log);
+    return 0;
+  }
+
+  return 1;
+}
+
+void gl_data_construct(Renderer_Data *rd) {
+  // 1.618 golden ratio
+  // 12 vertices 20 faces icosahedron
+  // const float g = (1.0 + sqrt(5.0)) / 2.0;
+  // const float scaled = 1.0 / sqrt(1.0 + g * g);
+  // const float x = scaled;
+  // const float y = g * scaled;
+
+  const float vertices[] = {
+      -0.5f, -0.5f, -0.5f, 0.5f,  -0.5f, -0.5f, 0.5f,  0.5f,  -0.5f,
+      0.5f,  0.5f,  -0.5f, -0.5f, 0.5f,  -0.5f, -0.5f, -0.5f, -0.5f,
+
+      -0.5f, -0.5f, 0.5f,  0.5f,  -0.5f, 0.5f,  0.5f,  0.5f,  0.5f,
+      0.5f,  0.5f,  0.5f,  -0.5f, 0.5f,  0.5f,  -0.5f, -0.5f, 0.5f,
+
+      -0.5f, 0.5f,  0.5f,  -0.5f, 0.5f,  -0.5f, -0.5f, -0.5f, -0.5f,
+      -0.5f, -0.5f, -0.5f, -0.5f, -0.5f, 0.5f,  -0.5f, 0.5f,  0.5f,
+
+      0.5f,  0.5f,  0.5f,  0.5f,  0.5f,  -0.5f, 0.5f,  -0.5f, -0.5f,
+      0.5f,  -0.5f, -0.5f, 0.5f,  -0.5f, 0.5f,  0.5f,  0.5f,  0.5f,
+
+      -0.5f, -0.5f, -0.5f, 0.5f,  -0.5f, -0.5f, 0.5f,  -0.5f, 0.5f,
+      0.5f,  -0.5f, 0.5f,  -0.5f, -0.5f, 0.5f,  -0.5f, -0.5f, -0.5f,
+
+      -0.5f, 0.5f,  -0.5f, 0.5f,  0.5f,  -0.5f, 0.5f,  0.5f,  0.5f,
+      0.5f,  0.5f,  0.5f,  -0.5f, 0.5f,  0.5f,  -0.5f, 0.5f,  -0.5f,
+  };
+
+  glGenVertexArrays(1, &rd->VAO);
+
+  glGenBuffers(1, &rd->VBO);
+
+  glBindVertexArray(rd->VAO);
+
+  glBindBuffer(GL_ARRAY_BUFFER, rd->VBO);
+  // Data doesnt change
+  glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+  glEnableVertexAttribArray(0);
+}

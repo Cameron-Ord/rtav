@@ -1,7 +1,7 @@
 #ifndef MATRIX_H
 #define MATRIX_H
 
-#define PI 3.14
+#define PI 3.14159265359
 #define DEG2RAD (PI / 180.0)
 
 // Row major matrix - OpenGL needs to translate it when being passed to render
@@ -15,9 +15,12 @@ typedef struct {
 
 Matrix translate_mat(const float x, const float y, const float z);
 Matrix identity(void);
+Matrix rms_identity(const float str);
 void print_mat(Matrix *mat);
 Matrix multiply_mat(Matrix x, Matrix y);
 Matrix pers_mat(const float deg, const float aspect_ratio, const float near,
                 const float far);
+Matrix rotate_matx(const float angle);
+Matrix rotate_maty(const float angle);
 
 #endif

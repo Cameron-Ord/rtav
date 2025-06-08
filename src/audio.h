@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#define BUFFER_SIZE (1 << 13)
+
 typedef struct {
   int valid;
   float *buffer;
@@ -16,6 +18,8 @@ typedef struct {
   int sr;
 } AParams;
 
+int get_audio_state(void);
+float root_mean_squared(const float *slice, const size_t size);
 void toggle_pause(void);
 AParams *read_file(const char *fp);
 int dev_from_data(AParams *const data);

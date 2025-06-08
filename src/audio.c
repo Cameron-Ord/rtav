@@ -26,6 +26,21 @@ static int open_device(void);
 static void close_device(void);
 static const char *format_to_str(const int format);
 
+float root_mean_squared(const float *slice, const size_t size) {
+  float sum = 0.0f;
+  for (size_t i = 0; i < size; i++) {
+    sum += slice[i] * slice[i];
+  }
+  return sqrtf(sum / size);
+}
+
+int get_audio_state(void) {
+  if (dev) {
+    return SDL_GetAudioDeviceStatus(dev);
+  }
+  return 0;
+}
+
 static void callback(void *usrdata, unsigned char *stream, int len) {
   AParams *const p = (AParams *)usrdata;
   if (p && p->buffer && (len > 0 && stream)) {
@@ -35,6 +50,9 @@ static void callback(void *usrdata, unsigned char *stream, int len) {
     const uint32_t scount = (samples < remaining) ? samples : remaining;
 
     float *fstream = (float *)stream;
+    // Every common audio file format (The ones im allowing to be
+    // used) is spec'd to store its samples in interleaved format, so just pass
+    // the data to stream as is.
     for (uint32_t i = 0; i < scount; i++) {
       if (i + p->position < p->len) {
         fstream[i] = p->buffer[i + p->position] * vol;
@@ -77,7 +95,7 @@ static void set_audio_spec(AParams *const data) {
   spec.channels = data->channels;
   spec.freq = data->sr;
   spec.format = AUDIO_F32SYS;
-  spec.samples = (1 << 13) / data->channels;
+  spec.samples = BUFFER_SIZE / data->channels;
 }
 
 static int open_device(void) {
