@@ -47,7 +47,7 @@ void gl_draw_buffer(Renderer_Data *rd, const float *sums, const int bcount,
   for (int i = 0; i < bcount; i++) {
     const float angle = (2.0 * PI * i) / bcount;
 
-    float radius = 1.33f;
+    float radius = 1.5f;
     const float x = cosf(angle) * radius;
     const float z = sinf(angle) * radius;
 
@@ -55,9 +55,10 @@ void gl_draw_buffer(Renderer_Data *rd, const float *sums, const int bcount,
     Matrix view = identity();
     Matrix model = identity();
 
+    Matrix rotx = rotate_matx(rangle + sums[i]);
+    Matrix roty = rotate_maty(rangle + sums[i]);
+
     model = multiply_mat(model, translate_mat(x, z, -3.25));
-    Matrix rotx = rotate_matx(rangle);
-    Matrix roty = rotate_maty(rangle);
     model = multiply_mat(model, multiply_mat(rotx, roty));
     model = multiply_mat(model, scale_mat(clampf(0.15, 0.25, 0.5 * sums[i])));
 

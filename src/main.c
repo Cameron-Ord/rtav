@@ -97,7 +97,7 @@ int main(int argc, char **argv) {
 
   SDL_ShowWindow(win);
 
-  const int bcount = 32;
+  const int bcount = 16;
   const int MAX_ATTEMPTS = 6;
   int song_queued = 0, attempts = 0;
   int run = 1;

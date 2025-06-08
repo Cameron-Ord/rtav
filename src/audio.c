@@ -80,7 +80,6 @@ static int scmp(AParams *data) {
   if (spec.freq != data->sr) {
     return 0;
   }
-  void set_spec(AParams * data);
 
   if (spec.samples != (1 << 13) / data->channels) {
     return 0;
