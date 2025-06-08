@@ -73,7 +73,7 @@ void gl_draw_buffer(Renderer_Data *rd, const float *sums, const int bcount,
     glUniformMatrix4fv(mloc, 1, GL_TRUE, &model.m0);
     glUniformMatrix4fv(vloc, 1, GL_TRUE, &view.m0);
     glUniformMatrix4fv(ploc, 1, GL_TRUE, &proj.m0);
-    glUniform4f(cloc, 0.376, 0.102, 0.82, 1.0f);
+    glUniform4f(cloc, 0.376, 0.102, 0.82, clampf(0.25, 1.0, 1.0f * sums[i]));
 
     glBindVertexArray(rd->VAO);
     glDrawArrays(GL_TRIANGLES, 0, 36);
