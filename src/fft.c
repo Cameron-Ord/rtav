@@ -1,6 +1,7 @@
 #include "fft.h"
 #include "audio.h"
 #include <math.h>
+#include <stdio.h>
 
 static inline Compf c_from_real(const float real) {
   Compf _complex;
@@ -99,5 +100,49 @@ void calculate_window(float *hambuf) {
   for (int i = 0; i < BUFFER_SIZE; ++i) {
     float t = (float)i / BUFFER_SIZE - 1;
     hambuf[i] = 0.54 - 0.46 * cosf(2 * PI * t);
+  }
+}
+
+void compf_to_float(float *half, Compf *fft_output) {
+  const size_t half_size = BUFFER_SIZE / 2;
+  for (size_t i = 0; i < half_size; i++) {
+    const Compf *const c = &fft_output[i];
+    half[i] = sqrtf(c->real * c->real + c->imag * c->imag);
+  }
+}
+
+static void gen_bins(const int bcount, float *bins) {
+  for (int i = 0; i <= bcount; i++) {
+    float t = (float)i / bcount;
+    float k = 20.0f * powf(20000.0 / 20.0, t);
+    bins[i] = k;
+  }
+}
+
+static void bin_slice(const float freq, const float s, const int bcount,
+                      float *sums, float *max) {
+  float bins[bcount + 1];
+  gen_bins(bcount + 1, bins);
+  for (int j = 0; j < bcount; j++) {
+    if (freq >= bins[j] && freq < bins[j + 1]) {
+      sums[j] += s;
+      if (sums[j] > *max) {
+        *max = sums[j];
+      }
+      return;
+    }
+  }
+}
+
+void section_bins(const int sr, float *half, float *sums, const int bcount) {
+  const int half_size = BUFFER_SIZE / 2;
+  float max = 0.0f;
+  for (int i = 0; i < half_size; i++) {
+    const float freq = i * (float)sr / BUFFER_SIZE;
+    bin_slice(freq, half[i], bcount, sums, &max);
+  }
+
+  for (int l = 0; l < bcount; l++) {
+    sums[l] /= max;
   }
 }

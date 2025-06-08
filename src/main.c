@@ -97,9 +97,15 @@ int main(int argc, char **argv) {
 
   SDL_ShowWindow(win);
 
+  const int bcount = 32;
   const int MAX_ATTEMPTS = 6;
   int song_queued = 0, attempts = 0;
   int run = 1;
+
+  float sample_buffer[BUFFER_SIZE];
+  Compf out_buffer[BUFFER_SIZE];
+  float out_half[BUFFER_SIZE / 2];
+  float sums[bcount];
 
   while (run) {
     const uint32_t start = SDL_GetTicks64();
@@ -116,11 +122,7 @@ int main(int argc, char **argv) {
       }
     }
 
-    // Obviously this is subject to change
-    float sample_buffer[BUFFER_SIZE];
-    Compf out_buffer[BUFFER_SIZE];
-    float out_half[BUFFER_SIZE / 2];
-
+    memset(sums, 0, sizeof(float) * bcount);
     memset(sample_buffer, 0, BUFFER_SIZE * sizeof(float));
     memset(out_half, 0, (BUFFER_SIZE / 2) * sizeof(float));
     memset(out_buffer, 0, BUFFER_SIZE * sizeof(Compf));
@@ -130,34 +132,10 @@ int main(int argc, char **argv) {
       const uint32_t scount = _scount(remaining);
       const float *const buffer_at = p->buffer + p->position;
       memcpy(sample_buffer, buffer_at, scount * sizeof(float));
+
       iter_fft(sample_buffer, hambuf, out_buffer, BUFFER_SIZE);
-
-      for (size_t i = 0; i < BUFFER_SIZE / 2; i++) {
-        const Compf *const c = &out_buffer[i];
-        out_half[i] = sqrtf(c->real * c->real + c->imag * c->imag);
-      }
-      const int bin_count = 10;
-      // 11 elements with the last value being the sentinel
-      const float bins[] = {20,   40,   80,   160,   320,  640,
-                            1280, 2560, 5120, 10240, 20480};
-      float sums[bin_count];
-      memset(sums, 0, sizeof(float) * bin_count);
-
-      for (int i = 0; i < BUFFER_SIZE / 2; i++) {
-        float freq = i * (float)p->sr / BUFFER_SIZE;
-        for (int j = 0; j < bin_count; j++) {
-          if (freq >= bins[j] && freq < bins[j + 1]) {
-            sums[j] += out_half[i];
-            break;
-          }
-        }
-      }
-
-      printf("==BIN BEGIN==\n");
-      for (int i = 0; i < bin_count; i++) {
-        printf("%.3f\n", sums[i]);
-      }
-      printf("==BIN END==\n");
+      compf_to_float(out_half, out_buffer);
+      section_bins(p->sr, out_half, sums, bcount);
     }
 
     glClearColor(0.0, 0.0, 0.0, 0.0);
@@ -185,7 +163,7 @@ int main(int argc, char **argv) {
       }
     }
 
-    gl_draw_buffer(&rd, 0.0, ww, wh);
+    gl_draw_buffer(&rd, sums, bcount, ww, wh);
     SDL_GL_SwapWindow(win);
 
     const uint32_t duration = SDL_GetTicks64() - start;

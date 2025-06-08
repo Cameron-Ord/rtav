@@ -28,47 +28,64 @@ static int shader_src_fill(FILE *file, char *srcbuf) {
   return i;
 }
 
-// Todo make each sample a cube, and use FFT
-void gl_draw_buffer(Renderer_Data *rd, const float rms, const int ww,
-                    const int wh) {
-  static float angle;
-  Matrix proj = pers_mat(45.0f, (float)ww / wh, 0.1f, 100.0f);
-  Matrix model = identity();
-  Matrix view = identity();
-
-  model = multiply_mat(model, translate_mat(0.0f, 0.0f, -3.0f));
-  Matrix x = rotate_matx(angle);
-  Matrix y = rotate_maty(angle);
-  model = multiply_mat(model, multiply_mat(x, y));
-
-  const unsigned int sid = rd->shader_program_id;
-  glUseProgram(sid);
-
-  unsigned int cloc = glGetUniformLocation(sid, "colour");
-  unsigned int mloc = glGetUniformLocation(sid, "model");
-  unsigned int vloc = glGetUniformLocation(sid, "view");
-  unsigned int ploc = glGetUniformLocation(sid, "projection");
-
-  glUniformMatrix4fv(mloc, 1, GL_TRUE, &model.m0);
-  glUniformMatrix4fv(vloc, 1, GL_TRUE, &view.m0);
-  glUniformMatrix4fv(ploc, 1, GL_TRUE, &proj.m0);
-  glUniform4f(cloc, 0.376, 0.102, 0.82, 1.0f);
-
-  glBindVertexArray(rd->VAO);
-  glDrawArrays(GL_TRIANGLES, 0, 36);
-
-  glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-  glLineWidth(2.0f);
-  glUniform4f(cloc, 0.0, 0.0, 0.0, 1.0f);
-
-  glDrawArrays(GL_TRIANGLES, 0, 36);
-
-  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
-  angle += 0.5;
-  if (angle > 360.0f) {
-    angle -= 360.0f;
+static float clampf(const float min, const float max, const float sample) {
+  if (sample < min) {
+    return min;
   }
+
+  if (sample > max) {
+    return max;
+  }
+
+  return sample;
+}
+
+// Todo make each sample a cube, and use FFT
+void gl_draw_buffer(Renderer_Data *rd, const float *sums, const int bcount,
+                    const int ww, const int wh) {
+  static float rangle;
+  for (int i = 0; i < bcount; i++) {
+    const float angle = (2.0 * PI * i) / bcount;
+
+    float radius = 1.33f;
+    const float x = cosf(angle) * radius;
+    const float z = sinf(angle) * radius;
+
+    Matrix proj = pers_mat(45.0f, (float)ww / wh, 0.1f, 100.0f);
+    Matrix view = identity();
+    Matrix model = identity();
+
+    model = multiply_mat(model, translate_mat(x, z, -3.25));
+    Matrix rotx = rotate_matx(rangle);
+    Matrix roty = rotate_maty(rangle);
+    model = multiply_mat(model, multiply_mat(rotx, roty));
+    model = multiply_mat(model, scale_mat(clampf(0.15, 0.25, 0.5 * sums[i])));
+
+    const unsigned int sid = rd->shader_program_id;
+    glUseProgram(sid);
+
+    unsigned int cloc = glGetUniformLocation(sid, "colour");
+    unsigned int mloc = glGetUniformLocation(sid, "model");
+    unsigned int vloc = glGetUniformLocation(sid, "view");
+    unsigned int ploc = glGetUniformLocation(sid, "projection");
+
+    glUniformMatrix4fv(mloc, 1, GL_TRUE, &model.m0);
+    glUniformMatrix4fv(vloc, 1, GL_TRUE, &view.m0);
+    glUniformMatrix4fv(ploc, 1, GL_TRUE, &proj.m0);
+    glUniform4f(cloc, 0.376, 0.102, 0.82, 1.0f);
+
+    glBindVertexArray(rd->VAO);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    glLineWidth(2.0f);
+    glUniform4f(cloc, 0.0, 0.0, 0.0, 1.0f);
+
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+  }
+  rangle = (rangle + 1.0f > 360.0f) ? rangle - 360.0f : rangle + 1.0f;
 }
 
 void sdl_gl_set_flags(void) {

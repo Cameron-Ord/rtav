@@ -21,6 +21,14 @@ Matrix identity(void) {
   return id;
 }
 
+Matrix scale_mat(const float s) {
+  Matrix id = {
+      s,    0.0f, 0.0f, 0.0f, 0.0f, s,    0.0f, 0.0f,
+      0.0f, 0.0f, s,    0.0f, 0.0f, 0.0f, 0.0f, 1.0f,
+  };
+  return id;
+}
+
 Matrix rotate_maty(const float angle) {
   // Yeah I read the raylib src code what about u bich
   const float c = cosf(angle * DEG2RAD);

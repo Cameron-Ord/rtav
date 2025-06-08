@@ -13,6 +13,7 @@ typedef struct {
   float m3, m7, m11, m15;
 } Matrix;
 
+Matrix scale_mat(const float s);
 Matrix translate_mat(const float x, const float y, const float z);
 Matrix identity(void);
 Matrix rms_identity(const float str);
