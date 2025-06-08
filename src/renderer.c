@@ -14,37 +14,6 @@
 const size_t SHADER_SRC_MAX = 2048;
 static int shader_src_fill(FILE *file, char *srcbuf);
 
-static float interpolate_rms(const float rms) {
-  static float smoothed;
-  const float sfactor = 0.25;
-  return (smoothed = smoothed * (1.0f - sfactor) + rms * sfactor);
-}
-
-static float interpolate_str(const float str) {
-  static float smoothed;
-  const float sfactor = 0.25;
-  return (smoothed = smoothed * (1.0f - sfactor) + str * sfactor);
-}
-
-static float throw_intensity(const float rms) {
-  static float last;
-  static uint32_t last_throw_time;
-
-  const uint32_t cd = 150; // ms
-  const uint32_t now = SDL_GetTicks64();
-
-  const float threshold = 0.0f;
-  const float diff = rms - last;
-  last = rms;
-
-  if (diff >= threshold && (now - last_throw_time) >= cd) {
-    last_throw_time = now;
-    return 1.75;
-  }
-
-  return 0.5;
-}
-
 static int shader_src_fill(FILE *file, char *srcbuf) {
   int i = 0;
   if (file && srcbuf) {
@@ -59,21 +28,12 @@ static int shader_src_fill(FILE *file, char *srcbuf) {
   return i;
 }
 
-int incrementing = 1;
+// Todo make each sample a cube, and use FFT
 void gl_draw_buffer(Renderer_Data *rd, const float rms, const int ww,
                     const int wh) {
   static float angle;
-  if (incrementing && angle > 180.0f) {
-    incrementing = 0;
-  } else if (!incrementing && angle < -180.0f) {
-    incrementing = 1;
-  }
-
-  const float irms = interpolate_rms(rms);
-  const float str = 1.0f + powf(irms, 0.5) * throw_intensity(irms);
-
   Matrix proj = pers_mat(45.0f, (float)ww / wh, 0.1f, 100.0f);
-  Matrix model = rms_identity(interpolate_str(str));
+  Matrix model = identity();
   Matrix view = identity();
 
   model = multiply_mat(model, translate_mat(0.0f, 0.0f, -3.0f));
@@ -96,10 +56,18 @@ void gl_draw_buffer(Renderer_Data *rd, const float rms, const int ww,
 
   glBindVertexArray(rd->VAO);
   glDrawArrays(GL_TRIANGLES, 0, 36);
-  if (incrementing) {
-    angle += 0.025;
-  } else {
-    angle -= 0.025;
+
+  glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+  glLineWidth(2.0f);
+  glUniform4f(cloc, 0.0, 0.0, 0.0, 1.0f);
+
+  glDrawArrays(GL_TRIANGLES, 0, 36);
+
+  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+  angle += 0.5;
+  if (angle > 360.0f) {
+    angle -= 360.0f;
   }
 }
 

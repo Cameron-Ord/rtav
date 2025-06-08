@@ -74,7 +74,8 @@ int main(int argc, char **argv) {
   // Track and set dimension values
   int ww, wh;
   gl_viewport_update(win, &ww, &wh);
-  glEnable(GL_BLEND | GL_DEPTH_TEST);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
   Renderer_Data rd = load_shaders();
   if (rd.broken) {
@@ -120,8 +121,8 @@ int main(int argc, char **argv) {
       rms = root_mean_squared(sample_buffer, BUFFER_SIZE);
     }
 
-    glClearColor(0.0, 0.0, 0.0, 1.0);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClearColor(0.0, 0.0, 0.0, 0.0);
+    glClear(GL_COLOR_BUFFER_BIT);
 
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
