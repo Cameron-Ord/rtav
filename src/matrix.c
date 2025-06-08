@@ -21,12 +21,12 @@ Matrix identity(void) {
   return id;
 }
 
-Matrix scale_mat(const float s) {
-  Matrix id = {
-      s,    0.0f, 0.0f, 0.0f, 0.0f, s,    0.0f, 0.0f,
-      0.0f, 0.0f, s,    0.0f, 0.0f, 0.0f, 0.0f, 1.0f,
-  };
-  return id;
+Matrix scale_mat(const float x, const float y, const float z) {
+  Matrix m = identity();
+  m.m0 = x;
+  m.m5 = y;
+  m.m10 = z;
+  return m;
 }
 
 Matrix rotate_maty(const float angle) {

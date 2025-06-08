@@ -6,6 +6,7 @@
 
 #include "matrix.h"
 #include "renderer.h"
+#include "rndrdef.h"
 
 #include <GL/gl.h>
 #include <SDL2/SDL_timer.h>
@@ -13,6 +14,80 @@
 
 const size_t SHADER_SRC_MAX = 2048;
 static int shader_src_fill(FILE *file, char *srcbuf);
+
+typedef struct {
+  Matrix proj;
+  Matrix view;
+  Matrix model;
+} MatObj;
+
+static MatObj load_mat_obj() {
+  MatObj mo = {ortho_mat(0, RENDER_WIDTH, 0, RENDER_HEIGHT, -100, 100),
+               identity(), identity()};
+  return mo;
+}
+
+static void mat_obj_scale(MatObj *const mo, const float model_width,
+                          const float model_height) {
+  mo->model = multiply_mat(
+      scale_mat(model_width, model_height, 150.0 /*LONG BIG LONG DEEP*/),
+      mo->model);
+}
+
+static void mat_obj_transform_at(MatObj *const mo, const float xpos,
+                                 const float ypos) {
+  mo->model = multiply_mat(translate_mat(xpos, ypos, 0.0), mo->model);
+}
+
+static void mat_obj_rotate(MatObj *mo) {
+  static float angle;
+  mo->model = multiply_mat(multiply_mat(rotate_matx(angle), rotate_maty(angle)),
+                           mo->model);
+  angle = (angle + 0.05f > 360.0f) ? angle - 360.0f : angle + 0.05;
+}
+
+static void gl_vertex_bind(const unsigned int VAO) { glBindVertexArray(VAO); }
+
+static void gl_vertex_unbind(void) { glBindVertexArray(0); }
+
+static void gl_prog_use(const unsigned int sid) { glUseProgram(sid); }
+
+static void gl_draw_arrays(GLenum MODE, const int first, const int count) {
+  glDrawArrays(MODE, first, count);
+}
+
+static void gl_set_uniforms(const unsigned int sid, MatObj *mo) {
+  gl_prog_use(sid);
+
+  unsigned int cloc = glGetUniformLocation(sid, "colour");
+  unsigned int mloc = glGetUniformLocation(sid, "model");
+  unsigned int vloc = glGetUniformLocation(sid, "view");
+  unsigned int ploc = glGetUniformLocation(sid, "projection");
+
+  glUniformMatrix4fv(mloc, 1, GL_TRUE, &mo->model.m0);
+  glUniformMatrix4fv(vloc, 1, GL_TRUE, &mo->view.m0);
+  glUniformMatrix4fv(ploc, 1, GL_TRUE, &mo->proj.m0);
+  glUniform4f(cloc, 0.376, 0.102, 0.82, 1.0f);
+}
+
+void gl_draw_buffer(Renderer_Data *rd, const float *sums, const int ww,
+                    const int wh) {
+  const float model_width = (float)RENDER_WIDTH / DIVISOR;
+  const float model_height = (float)RENDER_HEIGHT / DIVISOR;
+  for (int i = 0; i < DIVISOR; i++) {
+    const float xpos = i * model_width + model_width / 2;
+    const float ypos = sums[i] * (RENDER_HEIGHT * 0.80);
+    MatObj m = load_mat_obj();
+
+    mat_obj_scale(&m, model_width * 0.9, model_height);
+    mat_obj_transform_at(&m, xpos, ypos);
+
+    gl_set_uniforms(rd->shader_program_id, &m);
+    gl_vertex_bind(rd->VAO);
+    gl_draw_arrays(GL_TRIANGLES, 0, 36);
+    gl_vertex_unbind();
+  }
+}
 
 static int shader_src_fill(FILE *file, char *srcbuf) {
   int i = 0;
@@ -41,43 +116,6 @@ static float clampf(const float min, const float max, const float sample) {
 }
 
 // Todo make each sample a cube, and use FFT
-void gl_draw_buffer(Renderer_Data *rd, const float *sums, const int bcount,
-                    const int ww, const int wh) {
-
-  const int cw = ww / bcount;
-
-  static float rangle;
-  for (int i = 0; i < bcount; i++) {
-    const float x = i * cw + cw / 2.0;
-    Matrix proj = ortho_mat(0, ww, 0, wh, -1000, 1000);
-    Matrix view = identity();
-    Matrix model = identity();
-
-    Matrix rotx = rotate_matx(rangle);
-    Matrix roty = rotate_maty(rangle);
-
-    model = multiply_mat(scale_mat(cw * 0.75), model);
-    model = multiply_mat(multiply_mat(rotx, roty), model);
-    model = multiply_mat(translate_mat((float)x, (float)wh / 2, 0.0), model);
-
-    const unsigned int sid = rd->shader_program_id;
-    glUseProgram(sid);
-
-    unsigned int cloc = glGetUniformLocation(sid, "colour");
-    unsigned int mloc = glGetUniformLocation(sid, "model");
-    unsigned int vloc = glGetUniformLocation(sid, "view");
-    unsigned int ploc = glGetUniformLocation(sid, "projection");
-
-    glUniformMatrix4fv(mloc, 1, GL_TRUE, &model.m0);
-    glUniformMatrix4fv(vloc, 1, GL_TRUE, &view.m0);
-    glUniformMatrix4fv(ploc, 1, GL_TRUE, &proj.m0);
-    glUniform4f(cloc, 0.376, 0.102, 0.82, 1.0f);
-
-    glBindVertexArray(rd->VAO);
-    glDrawArrays(GL_TRIANGLES, 0, 36);
-  }
-  rangle = (rangle + 1.0f > 360.0f) ? rangle - 360.0f : rangle + 1.0f;
-}
 
 void sdl_gl_set_flags(void) {
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
@@ -87,7 +125,10 @@ void sdl_gl_set_flags(void) {
 
 void gl_viewport_update(SDL_Window *w, int *ww, int *wh) {
   SDL_GetWindowSize(w, ww, wh);
-  glViewport(0, 0, *ww, *wh);
+  // Todo: scale this by multiples/divisions of the base render size dynamically
+  const int x = (*ww - RENDER_WIDTH) / 2;
+  const int y = (*wh - RENDER_HEIGHT) / 2;
+  glViewport(x, y, RENDER_WIDTH, RENDER_HEIGHT);
 }
 
 int check_link_state(const unsigned int *program_id) {

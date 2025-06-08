@@ -1,5 +1,6 @@
 #include "fft.h"
 #include "audio.h"
+#include "rndrdef.h"
 #include <math.h>
 #include <stdio.h>
 
@@ -111,19 +112,19 @@ void compf_to_float(float *half, Compf *fft_output) {
   }
 }
 
-static void gen_bins(const int bcount, float *bins) {
-  for (int i = 0; i <= bcount; i++) {
-    float t = (float)i / bcount;
+static void gen_bins(float *bins) {
+  for (int i = 0; i <= DIVISOR; i++) {
+    float t = (float)i / DIVISOR;
     float k = 20.0f * powf(20000.0 / 20.0, t);
     bins[i] = k;
   }
 }
 
-static void bin_slice(const float freq, const float s, const int bcount,
-                      float *sums, float *max) {
-  float bins[bcount + 1];
-  gen_bins(bcount + 1, bins);
-  for (int j = 0; j < bcount; j++) {
+static void bin_slice(const float freq, const float s, float *sums,
+                      float *max) {
+  float bins[DIVISOR + 1];
+  gen_bins(bins);
+  for (int j = 0; j < DIVISOR; j++) {
     if (freq >= bins[j] && freq < bins[j + 1]) {
       sums[j] += s;
       if (sums[j] > *max) {
@@ -134,15 +135,15 @@ static void bin_slice(const float freq, const float s, const int bcount,
   }
 }
 
-void section_bins(const int sr, float *half, float *sums, const int bcount) {
+void section_bins(const int sr, float *half, float *sums) {
   const int half_size = BUFFER_SIZE / 2;
   float max = 0.0f;
   for (int i = 0; i < half_size; i++) {
     const float freq = i * (float)sr / BUFFER_SIZE;
-    bin_slice(freq, half[i], bcount, sums, &max);
+    bin_slice(freq, half[i], sums, &max);
   }
 
-  for (int l = 0; l < bcount; l++) {
+  for (int l = 0; l < DIVISOR; l++) {
     sums[l] /= max;
   }
 }

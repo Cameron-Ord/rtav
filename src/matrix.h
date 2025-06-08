@@ -15,7 +15,7 @@ typedef struct {
 
 Matrix ortho_mat(const float left, const float right, const float bottom,
                  const float top, const float near, const float far);
-Matrix scale_mat(const float s);
+Matrix scale_mat(const float x, const float y, const float z);
 Matrix translate_mat(const float x, const float y, const float z);
 Matrix identity(void);
 Matrix rms_identity(const float str);

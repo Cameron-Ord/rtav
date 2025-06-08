@@ -9,8 +9,8 @@ typedef struct {
   int broken;
 } Renderer_Data;
 
-void gl_draw_buffer(Renderer_Data *rd, const float *sums, const int bcount,
-                    const int ww, const int wh);
+void gl_draw_buffer(Renderer_Data *rd, const float *sums, const int ww,
+                    const int wh);
 void sdl_gl_set_flags(void);
 void gl_viewport_update(SDL_Window *w, int *ww, int *wh);
 int check_link_state(const unsigned int *program);
