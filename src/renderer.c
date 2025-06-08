@@ -58,9 +58,9 @@ void gl_draw_buffer(Renderer_Data *rd, const float *sums, const int bcount,
     Matrix rotx = rotate_matx(rangle + sums[i]);
     Matrix roty = rotate_maty(rangle + sums[i]);
 
-    model = multiply_mat(model, translate_mat(x, y, -10.0));
-    model = multiply_mat(model, multiply_mat(rotx, roty));
-    model = multiply_mat(model, scale_mat(clampf(0.5, 1.1f, 1.0f * sums[i])));
+    model = multiply_mat(scale_mat(clampf(0.5, 1.1f, 1.0f * sums[i])), model);
+    model = multiply_mat(multiply_mat(rotx, roty), model);
+    model = multiply_mat(translate_mat(x, y, -10.0), model);
 
     const unsigned int sid = rd->shader_program_id;
     glUseProgram(sid);
