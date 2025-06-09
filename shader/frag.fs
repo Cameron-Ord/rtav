@@ -12,7 +12,7 @@ uniform vec3 object_colour;
 void main()
 {
   //ambient
-    float ambient_str = 0.5;
+    float ambient_str = 0.25;
     vec3 ambience = ambient_str * light_colour;
 
   //diffuse

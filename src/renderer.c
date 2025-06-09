@@ -103,16 +103,16 @@ void gl_draw_buffer(Renderer_Data *rd, const float *sums, const int ww,
     const float xpos = i * model_width + model_width / 2;
     const float ceiling = sums[i] * (RENDER_HEIGHT * 0.90) + model_height / 2;
 
-    // signal dead as fuck? just skip it
-    if (ceiling <= 1.0 + model_height / 2) {
+    if (ceiling < model_height + model_height / 2) {
       continue;
     }
 
-    float ypos = 0.0f;
+    // offset to avoid starting centered
+    float ypos = model_height / 2;
     int j = 0;
     while (ypos < ceiling && (j * model_height + model_height / 2) < ceiling) {
       MatModel mm = {identity()};
-      mat_model_scale(&mm, model_width * 0.8, model_height);
+      mat_model_scale(&mm, model_width * 0.75, model_height * 0.75);
       mat_model_translate_at(&mm, xpos, ypos);
 
       gl_set_uniforms(rd->shader_program_id, &mm, &mo);
@@ -166,16 +166,29 @@ void gl_viewport_update(SDL_Window *w, int *ww, int *wh) {
   int baseh = RENDER_HEIGHT;
 
   float scale = 1.0f;
-  while (RENDER_WIDTH * (scale * 1.25) < *ww &&
-         RENDER_HEIGHT * (scale * 1.25) < *wh) {
-    scale *= 1.25;
+  const float smax = 10.0;
+  const float smin = 0.1;
+  const float sf_inc = 1.1;
+  const float sf_dec = 0.95;
+
+  if (*ww > RENDER_WIDTH || *wh > RENDER_HEIGHT) {
+    while (scale < smax && ((RENDER_WIDTH * (scale * sf_inc)) < *ww &&
+                            (RENDER_HEIGHT * (scale * sf_inc)) < *wh)) {
+      scale *= sf_inc;
+    }
+
+  } else if (*ww < RENDER_WIDTH || *wh < RENDER_HEIGHT) {
+    while (scale > smin && ((RENDER_WIDTH * (scale * sf_dec)) > *ww ||
+                            (RENDER_HEIGHT * (scale * sf_dec)) > *wh)) {
+      scale *= sf_dec;
+    }
   }
 
   basew = RENDER_WIDTH * scale;
   baseh = RENDER_HEIGHT * scale;
 
-  const int x = (*ww - basew) / 2;
-  const int y = (*wh - baseh) / 2;
+  const int x = (*ww - basew) * 0.5;
+  const int y = (*wh - baseh) * 0.5;
   glViewport(x, y, basew, baseh);
 }
 
