@@ -1,4 +1,4 @@
 #!/bin/bash
 
 sudo python3 install.py
-3DMV ~/Music/de
+3dmv ~/Music/de

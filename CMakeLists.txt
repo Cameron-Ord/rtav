@@ -1,13 +1,11 @@
 cmake_minimum_required(VERSION 3.10)
-project(3DMV VERSION 1.0)
-#define 3DMV_VERSION_MAJOR @3DMV_VERSION_MAJOR@
-#define 3DMV_VERSION_MINOR @3DMV_VERSION_MINOR@
+project(3dmv VERSION 1.0)
 
 set(SRCS src/main.c src/sys.c src/audio.c src/matrix.c src/renderer.c src/fft.c)
-add_executable(3DMV ${SRCS})
+add_executable(3dmv ${SRCS})
 
 set(SHADER_DIR "/usr/local/share/3dmv" CACHE PATH "Path to shader files")
-target_compile_definitions(3DMV PRIVATE SHADER_PATH=\"${SHADER_DIR}\")
+target_compile_definitions(3dmv PRIVATE SHADER_PATH=\"${SHADER_DIR}\")
 message("Shader dir is: ${SHADER_DIR}")
 
 find_library(SDL2_LIB NAMES SDL SDL2 sdl2 libsdl2 sdl)
@@ -32,4 +30,4 @@ if(NOT GLEW_LIB)
 endif()
 
 set(LIBS ${SDL2_LIB} ${OPENGL_LIB} ${GLEW_LIB} ${SND_LIB} m)
-target_link_libraries(3DMV PRIVATE ${LIBS})
+target_link_libraries(3dmv PRIVATE ${LIBS})

@@ -10,4 +10,4 @@ shutil.copy("shader/frag.fs", "/usr/local/share/3dmv/frag.fs")
 result = subprocess.run(["cmake -B build && cmake --build build"], shell=True)
 
 if result.returncode == 0:
-    shutil.copy("build/3DMV", "/usr/local/bin/3DMV")
+    shutil.copy("build/3dmv", "/usr/local/bin/3dmv")

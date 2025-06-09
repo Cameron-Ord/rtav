@@ -51,7 +51,7 @@ static void mat_model_rotate(MatModel *mo) {
   static float angle;
   mo->model = multiply_mat(multiply_mat(rotate_matx(angle), rotate_maty(angle)),
                            mo->model);
-  angle = (angle + 0.05f > 360.0f) ? angle - 360.0f : angle + 0.05;
+  angle = (angle + 0.025f > 360.0f) ? angle - 360.0f : angle + 0.025;
 }
 
 static void gl_vertex_bind(const unsigned int VAO) { glBindVertexArray(VAO); }
