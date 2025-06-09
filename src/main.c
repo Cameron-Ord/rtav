@@ -1,4 +1,5 @@
 #include <GL/glew.h>
+#include <SDL2/SDL_timer.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -106,26 +107,28 @@ int main(int argc, char **argv) {
   Compf out_buffer[BUFFER_SIZE];
   float out_half[BUFFER_SIZE / 2];
   float sums[DIVISOR];
+  float ssmooth[DIVISOR];
+  memset(ssmooth, 0, sizeof(float) * DIVISOR);
+
+  uint32_t lastinput = SDL_GetTicks64();
 
   while (run) {
     const uint32_t start = SDL_GetTicks64();
 
     song_queued = query_audio_position(&p);
-    if (song_queued && !p) {
+    if (song_queued && p) {
+      p = free_params(p);
       current = (current + 1 != eend) ? current + 1 : estart;
+      memset(ssmooth, 0, sizeof(float) * DIVISOR);
       p = _next(&attempts, current);
 
     } else if (!song_queued && !p) {
       current = (current + 1 != eend) ? current + 1 : estart;
+      memset(ssmooth, 0, sizeof(float) * DIVISOR);
       if (!(p = _next(&attempts, current)) && attempts > MAX_ATTEMPTS) {
         _fail(&run, attempts);
       }
     }
-
-    memset(sums, 0, sizeof(float) * DIVISOR);
-    memset(sample_buffer, 0, BUFFER_SIZE * sizeof(float));
-    memset(out_half, 0, (BUFFER_SIZE / 2) * sizeof(float));
-    memset(out_buffer, 0, BUFFER_SIZE * sizeof(Compf));
 
     if (p && p->buffer && get_audio_state() == SDL_AUDIO_PLAYING) {
       const uint32_t remaining = p->len - p->position;
@@ -135,7 +138,9 @@ int main(int argc, char **argv) {
 
       iter_fft(sample_buffer, hambuf, out_buffer, BUFFER_SIZE);
       compf_to_float(out_half, out_buffer);
+      memset(sums, 0, sizeof(float) * DIVISOR);
       section_bins(p->sr, out_half, sums);
+      interpolate(sums, ssmooth, 8, 60);
     }
 
     glClearColor(0.0, 0.0, 0.0, 0.0);
@@ -151,20 +156,40 @@ int main(int argc, char **argv) {
         int keysym = e.key.keysym.sym;
         switch (keysym) {
 
+        case SDLK_s: {
+        } break;
+
+        case SDLK_d: {
+        } break;
+
         case SDLK_DOWN: {
-          rd.lighty -= 0.1;
         } break;
 
         case SDLK_UP: {
-          rd.lighty += 0.1;
         } break;
 
         case SDLK_LEFT: {
-          rd.lightx -= 0.1;
+          float cd = 250;
+          if (SDL_GetTicks64() - lastinput >= cd) {
+            audio_end();
+            p = free_params(p);
+            current = (current > estart) ? current - 1 : eend - 1;
+            memset(ssmooth, 0, sizeof(float) * DIVISOR);
+            p = _next(&attempts, current);
+            lastinput = SDL_GetTicks64();
+          }
         } break;
 
         case SDLK_RIGHT: {
-          rd.lightx += 0.1;
+          float cd = 250;
+          if (SDL_GetTicks64() - lastinput >= cd) {
+            audio_end();
+            p = free_params(p);
+            current = (current + 1 < eend) ? current + 1 : estart;
+            memset(ssmooth, 0, sizeof(float) * DIVISOR);
+            p = _next(&attempts, current);
+            lastinput = SDL_GetTicks64();
+          }
         } break;
         }
       } break;
@@ -185,7 +210,7 @@ int main(int argc, char **argv) {
       }
     }
 
-    gl_draw_buffer(&rd, sums, ww, wh);
+    gl_draw_buffer(&rd, ssmooth, ww, wh);
     SDL_GL_SwapWindow(win);
 
     const uint32_t duration = SDL_GetTicks64() - start;
@@ -252,7 +277,6 @@ static void *free_params(AParams *p) {
 static int query_audio_position(AParams **p) {
   if ((p && *p) && !callback_check_pos((*p)->len, (*p)->position)) {
     audio_end();
-    *p = free_params(*p);
     return 1;
   } else {
     return 0;

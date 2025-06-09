@@ -18,28 +18,36 @@ static int shader_src_fill(FILE *file, char *srcbuf);
 typedef struct {
   Matrix proj;
   Matrix view;
-  Matrix model;
 } MatObj;
 
+typedef struct {
+  Matrix model;
+} MatModel;
+
 static MatObj load_mat_obj() {
-  MatObj mo = {ortho_mat(0, RENDER_WIDTH, 0, RENDER_HEIGHT, -100, 100),
-               identity(), identity()};
+  MatObj mo = {ortho_mat(0, RENDER_WIDTH, 0, RENDER_HEIGHT, 0.1, 100.0),
+               identity()};
   return mo;
 }
 
-static void mat_obj_scale(MatObj *const mo, const float model_width,
-                          const float model_height) {
+static void mat_model_scale(MatModel *const mo, const float model_width,
+                            const float model_height) {
   mo->model = multiply_mat(
       scale_mat(model_width, model_height, 15 /*LONG BIG LONG DEEP*/),
       mo->model);
 }
 
-static void mat_obj_transform_at(MatObj *const mo, const float xpos,
-                                 const float ypos) {
+static void mat_view_translate(MatObj *mo, const float x, const float y,
+                               const float z) {
+  mo->view = multiply_mat(translate_mat(x, y, z), mo->view);
+}
+
+static void mat_model_translate_at(MatModel *const mo, const float xpos,
+                                   const float ypos) {
   mo->model = multiply_mat(translate_mat(xpos, ypos, 0.0), mo->model);
 }
 
-static void mat_obj_rotate(MatObj *mo) {
+static void mat_model_rotate(MatModel *mo) {
   static float angle;
   mo->model = multiply_mat(multiply_mat(rotate_matx(angle), rotate_maty(angle)),
                            mo->model);
@@ -56,7 +64,7 @@ static void gl_draw_arrays(GLenum MODE, const int first, const int count) {
   glDrawArrays(MODE, first, count);
 }
 
-static void gl_set_uniforms(const unsigned int sid, MatObj *mo) {
+static void gl_set_uniforms(const unsigned int sid, MatModel *mm, MatObj *mo) {
   gl_prog_use(sid);
 
   unsigned int lcloc = glGetUniformLocation(sid, "object_colour");
@@ -67,35 +75,38 @@ static void gl_set_uniforms(const unsigned int sid, MatObj *mo) {
   unsigned int ploc = glGetUniformLocation(sid, "projection");
   // My matrix isnt laid out in memory like opengl expects it so transpose needs
   // to be true
-  glUniformMatrix4fv(mloc, 1, GL_TRUE, &mo->model.m0);
+  glUniformMatrix4fv(mloc, 1, GL_TRUE, &mm->model.m0);
   glUniformMatrix4fv(vloc, 1, GL_TRUE, &mo->view.m0);
   glUniformMatrix4fv(ploc, 1, GL_TRUE, &mo->proj.m0);
 }
 static void light_at(unsigned int sid, const float xpos, const float ypos,
                      const float zpos) {
-  unsigned int dloc = glGetUniformLocation(sid, "light_dir");
-  unsigned int ocloc = glGetUniformLocation(sid, "light_colour");
+  unsigned int lploc = glGetUniformLocation(sid, "light_pos");
+  unsigned int lcloc = glGetUniformLocation(sid, "light_colour");
 
-  glUniform3f(dloc, xpos, ypos, zpos);
-  glUniform3f(ocloc, 0.0f, 0.0f, 1.0f);
+  glUniform3f(lploc, xpos, ypos, zpos);
+  glUniform3f(lcloc, 0.0f, 0.0f, 1.0f);
 }
 
 void gl_draw_buffer(Renderer_Data *rd, const float *sums, const int ww,
                     const int wh) {
   const float model_width = (float)RENDER_WIDTH / DIVISOR;
   const float model_height = (float)RENDER_HEIGHT / DIVISOR;
-  light_at(rd->shader_program_id, rd->lightx, rd->lighty, rd->lightz);
 
+  MatObj mo = load_mat_obj();
+  mat_view_translate(&mo, 0.0, 0.0, -50.0);
+
+  light_at(rd->shader_program_id, rd->lightx, rd->lighty, rd->lightz);
   for (int i = 0; i < DIVISOR; i++) {
     const float xpos = i * model_width + model_width / 2;
     const float ypos = sums[i] * (RENDER_HEIGHT * 0.80);
-    MatObj m = load_mat_obj();
+    MatModel mm = {identity()};
 
-    mat_obj_scale(&m, model_width * 0.9, model_height);
-    mat_obj_rotate(&m);
-    mat_obj_transform_at(&m, xpos, ypos);
+    mat_model_scale(&mm, model_width * 0.9, model_height);
+    //   mat_obj_rotate(&m);
+    mat_model_translate_at(&mm, xpos, ypos);
 
-    gl_set_uniforms(rd->shader_program_id, &m);
+    gl_set_uniforms(rd->shader_program_id, &mm, &mo);
     gl_vertex_bind(rd->VAO);
     gl_draw_arrays(GL_TRIANGLES, 0, 36);
     gl_vertex_unbind();
@@ -197,7 +208,8 @@ FILE *open_shader_src(const char *path, const char *fn) {
 
 Renderer_Data load_shaders(void) {
   // Assume it's failed until its proven otherwise
-  Renderer_Data rd = {0, 0, 0, 0, 1, 0.0, 0.0, -1.0};
+  Renderer_Data rd = {
+      0, 0, 0, 0, 1, (float)RENDER_WIDTH / 2, (float)RENDER_HEIGHT / 2, 75.0};
   FILE *fvert = NULL;
   FILE *ffrag = NULL;
 

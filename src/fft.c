@@ -3,6 +3,7 @@
 #include "rndrdef.h"
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 static inline Compf c_from_real(const float real) {
   Compf _complex;
@@ -144,7 +145,7 @@ static void bin_slice(const float freq, const float s, float *sums,
 
 void section_bins(const int sr, float *half, float *sums) {
   const int half_size = BUFFER_SIZE / 2;
-  float max = 0.0f;
+  float max = 1.0f;
   for (int i = 0; i < half_size; i++) {
     const float freq = i * (float)sr / BUFFER_SIZE;
     bin_slice(freq, half[i], sums, &max);
@@ -152,5 +153,16 @@ void section_bins(const int sr, float *half, float *sums) {
 
   for (int l = 0; l < DIVISOR; l++) {
     sums[l] /= max;
+  }
+}
+
+float ls(float base, float sm, int amt, int frames) {
+  return (base - sm) * amt * (1.0 / frames);
+}
+
+void interpolate(float *sums, float *ssmooth, const int smoothing,
+                 const int frames) {
+  for (int i = 0; i < DIVISOR; i++) {
+    ssmooth[i] += ls(sums[i], ssmooth[i], smoothing, frames);
   }
 }

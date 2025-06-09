@@ -138,9 +138,6 @@ void toggle_pause(void) {
 
 void audio_start(void) { SDL_PauseAudioDevice(dev, SDL_FALSE); }
 void audio_end(void) { SDL_PauseAudioDevice(dev, SDL_TRUE); }
-// A data struct is allocated when created, needs to be freed when reading the
-// next file.
-
 static const char *format_to_str(const int format) {
   const mask_ret fmasks[] = {
       {SF_FORMAT_WAV, "WAV"},   {SF_FORMAT_FLAC, "FLAC"},
@@ -158,6 +155,8 @@ static const char *format_to_str(const int format) {
   return "?";
 }
 
+// A data struct is allocated when created, needs to be freed when reading the
+// next file.
 AParams *read_file(const char *fp) {
   if (!fp) {
     return NULL;
