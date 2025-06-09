@@ -147,6 +147,28 @@ int main(int argc, char **argv) {
       default:
         break;
 
+      case SDL_KEYDOWN: {
+        int keysym = e.key.keysym.sym;
+        switch (keysym) {
+
+        case SDLK_DOWN: {
+          rd.lighty -= 0.1;
+        } break;
+
+        case SDLK_UP: {
+          rd.lighty += 0.1;
+        } break;
+
+        case SDLK_LEFT: {
+          rd.lightx -= 0.1;
+        } break;
+
+        case SDLK_RIGHT: {
+          rd.lightx += 0.1;
+        } break;
+        }
+      } break;
+
       case SDL_WINDOWEVENT: {
         switch (e.window.event) {
         case SDL_WINDOWEVENT_RESIZED: {

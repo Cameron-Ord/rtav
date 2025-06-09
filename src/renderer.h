@@ -7,6 +7,7 @@ typedef struct {
   unsigned int VBO, VAO, EBO;
   unsigned int shader_program_id;
   int broken;
+  float lightx, lighty, lightz;
 } Renderer_Data;
 
 void gl_draw_buffer(Renderer_Data *rd, const float *sums, const int ww,

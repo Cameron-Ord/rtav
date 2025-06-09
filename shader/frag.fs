@@ -9,7 +9,7 @@ uniform vec3 object_colour;
 
 void main()
 {
-    float ambient_str = 0.05;
+    float ambient_str = 0.125;
     vec3 ambience = ambient_str * light_colour;
 
     vec3 norm = normalize(normval);
