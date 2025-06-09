@@ -58,16 +58,36 @@ static void gl_draw_arrays(GLenum MODE, const int first, const int count) {
 
 static void gl_set_uniforms(const unsigned int sid, MatObj *mo) {
   gl_prog_use(sid);
+  static float in;
 
-  unsigned int cloc = glGetUniformLocation(sid, "colour");
+  unsigned int lcloc = glGetUniformLocation(sid, "object_colour");
+  glUniform3f(lcloc, 1.0, 1.0, 1.0);
+
   unsigned int mloc = glGetUniformLocation(sid, "model");
   unsigned int vloc = glGetUniformLocation(sid, "view");
   unsigned int ploc = glGetUniformLocation(sid, "projection");
-
+  // My matrix isnt laid out in memory like opengl expects it so transpose needs
+  // to be true
   glUniformMatrix4fv(mloc, 1, GL_TRUE, &mo->model.m0);
   glUniformMatrix4fv(vloc, 1, GL_TRUE, &mo->view.m0);
   glUniformMatrix4fv(ploc, 1, GL_TRUE, &mo->proj.m0);
-  glUniform4f(cloc, 0.376, 0.102, 0.82, 1.0f);
+  in += 0.025;
+}
+static void light_at(unsigned int sid, const float xpos, const float ypos) {
+  unsigned int dloc = glGetUniformLocation(sid, "light_dir");
+  unsigned int ocloc = glGetUniformLocation(sid, "light_colour");
+
+  float lx = xpos / RENDER_WIDTH;
+  float ly = ypos / RENDER_HEIGHT;
+  float lz = -1.0f;
+
+  float length = sqrt(lx * lx + ly * ly + lz * lz);
+  lx /= length;
+  ly /= length;
+  lz /= length;
+
+  glUniform3f(dloc, lx, ly, lz);
+  glUniform3f(ocloc, 0.0f, 0.0f, 1.0f);
 }
 
 void gl_draw_buffer(Renderer_Data *rd, const float *sums, const int ww,
@@ -81,6 +101,8 @@ void gl_draw_buffer(Renderer_Data *rd, const float *sums, const int ww,
 
     mat_obj_scale(&m, model_width * 0.9, model_height);
     mat_obj_transform_at(&m, xpos, ypos);
+
+    light_at(rd->shader_program_id, xpos, 0.0);
 
     gl_set_uniforms(rd->shader_program_id, &m);
     gl_vertex_bind(rd->VAO);
@@ -250,37 +272,47 @@ void gl_data_construct(Renderer_Data *rd) {
   // const float scaled = 1.0 / sqrt(1.0 + g * g);
   // const float x = scaled;
   // const float y = g * scaled;
+  float vertices[] = {
+      -0.5f, -0.5f, -0.5f, 0.0f,  0.0f,  -1.0f, 0.5f,  -0.5f, -0.5f,
+      0.0f,  0.0f,  -1.0f, 0.5f,  0.5f,  -0.5f, 0.0f,  0.0f,  -1.0f,
+      0.5f,  0.5f,  -0.5f, 0.0f,  0.0f,  -1.0f, -0.5f, 0.5f,  -0.5f,
+      0.0f,  0.0f,  -1.0f, -0.5f, -0.5f, -0.5f, 0.0f,  0.0f,  -1.0f,
 
-  const float vertices[] = {
-      -0.5f, -0.5f, -0.5f, 0.5f,  -0.5f, -0.5f, 0.5f,  0.5f,  -0.5f,
-      0.5f,  0.5f,  -0.5f, -0.5f, 0.5f,  -0.5f, -0.5f, -0.5f, -0.5f,
+      -0.5f, -0.5f, 0.5f,  0.0f,  0.0f,  1.0f,  0.5f,  -0.5f, 0.5f,
+      0.0f,  0.0f,  1.0f,  0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+      0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  -0.5f, 0.5f,  0.5f,
+      0.0f,  0.0f,  1.0f,  -0.5f, -0.5f, 0.5f,  0.0f,  0.0f,  1.0f,
 
-      -0.5f, -0.5f, 0.5f,  0.5f,  -0.5f, 0.5f,  0.5f,  0.5f,  0.5f,
-      0.5f,  0.5f,  0.5f,  -0.5f, 0.5f,  0.5f,  -0.5f, -0.5f, 0.5f,
+      -0.5f, 0.5f,  0.5f,  -1.0f, 0.0f,  0.0f,  -0.5f, 0.5f,  -0.5f,
+      -1.0f, 0.0f,  0.0f,  -0.5f, -0.5f, -0.5f, -1.0f, 0.0f,  0.0f,
+      -0.5f, -0.5f, -0.5f, -1.0f, 0.0f,  0.0f,  -0.5f, -0.5f, 0.5f,
+      -1.0f, 0.0f,  0.0f,  -0.5f, 0.5f,  0.5f,  -1.0f, 0.0f,  0.0f,
 
-      -0.5f, 0.5f,  0.5f,  -0.5f, 0.5f,  -0.5f, -0.5f, -0.5f, -0.5f,
-      -0.5f, -0.5f, -0.5f, -0.5f, -0.5f, 0.5f,  -0.5f, 0.5f,  0.5f,
+      0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.5f,  0.5f,  -0.5f,
+      1.0f,  0.0f,  0.0f,  0.5f,  -0.5f, -0.5f, 1.0f,  0.0f,  0.0f,
+      0.5f,  -0.5f, -0.5f, 1.0f,  0.0f,  0.0f,  0.5f,  -0.5f, 0.5f,
+      1.0f,  0.0f,  0.0f,  0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
 
-      0.5f,  0.5f,  0.5f,  0.5f,  0.5f,  -0.5f, 0.5f,  -0.5f, -0.5f,
-      0.5f,  -0.5f, -0.5f, 0.5f,  -0.5f, 0.5f,  0.5f,  0.5f,  0.5f,
+      -0.5f, -0.5f, -0.5f, 0.0f,  -1.0f, 0.0f,  0.5f,  -0.5f, -0.5f,
+      0.0f,  -1.0f, 0.0f,  0.5f,  -0.5f, 0.5f,  0.0f,  -1.0f, 0.0f,
+      0.5f,  -0.5f, 0.5f,  0.0f,  -1.0f, 0.0f,  -0.5f, -0.5f, 0.5f,
+      0.0f,  -1.0f, 0.0f,  -0.5f, -0.5f, -0.5f, 0.0f,  -1.0f, 0.0f,
 
-      -0.5f, -0.5f, -0.5f, 0.5f,  -0.5f, -0.5f, 0.5f,  -0.5f, 0.5f,
-      0.5f,  -0.5f, 0.5f,  -0.5f, -0.5f, 0.5f,  -0.5f, -0.5f, -0.5f,
-
-      -0.5f, 0.5f,  -0.5f, 0.5f,  0.5f,  -0.5f, 0.5f,  0.5f,  0.5f,
-      0.5f,  0.5f,  0.5f,  -0.5f, 0.5f,  0.5f,  -0.5f, 0.5f,  -0.5f,
-  };
+      -0.5f, 0.5f,  -0.5f, 0.0f,  1.0f,  0.0f,  0.5f,  0.5f,  -0.5f,
+      0.0f,  1.0f,  0.0f,  0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+      0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  -0.5f, 0.5f,  0.5f,
+      0.0f,  1.0f,  0.0f,  -0.5f, 0.5f,  -0.5f, 0.0f,  1.0f,  0.0f};
 
   glGenVertexArrays(1, &rd->VAO);
-
   glGenBuffers(1, &rd->VBO);
-
-  glBindVertexArray(rd->VAO);
-
   glBindBuffer(GL_ARRAY_BUFFER, rd->VBO);
-  // Data doesnt change
+  glBindVertexArray(rd->VAO);
   glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *)0);
   glEnableVertexAttribArray(0);
+
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float),
+                        (void *)(3 * sizeof(float)));
+  glEnableVertexAttribArray(1);
 }
