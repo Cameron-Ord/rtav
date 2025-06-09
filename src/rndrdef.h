@@ -2,5 +2,5 @@
 #define RNDRDEF_H
 #define RENDER_WIDTH 400
 #define RENDER_HEIGHT 300
-#define DIVISOR 100
+#define DIVISOR 20
 #endif

@@ -113,9 +113,16 @@ void compf_to_float(float *half, Compf *fft_output) {
 }
 
 static void gen_bins(float *bins) {
-  for (int i = 0; i <= DIVISOR; i++) {
+  const float MAX_FREQ = 20000.0f;
+  const float MIN_FREQ = 20.0f;
+  const float RATIO = MAX_FREQ / MIN_FREQ;
+  for (int i = 0; i <= DIVISOR + 1; i++) {
     float t = (float)i / DIVISOR;
-    float k = 20.0f * powf(20000.0 / 20.0, t);
+    // BASE * POSITION
+    // 20 * 1000^0.95 = 14158..
+    // 20 * 1000^0.98 = 17419..
+    // 20 * 1000^1 = 20000
+    float k = MIN_FREQ * powf(RATIO, t);
     bins[i] = k;
   }
 }
