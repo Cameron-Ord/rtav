@@ -112,12 +112,12 @@ void compf_to_float(float *half, Compf *fft_output) {
   }
 }
 
-static void gen_bins(float *bins) {
+static void gen_bins(float *bins, const int size) {
   const float MAX_FREQ = 20000.0f;
   const float MIN_FREQ = 20.0f;
   const float RATIO = MAX_FREQ / MIN_FREQ;
-  for (int i = 0; i <= DIVISOR + 1; i++) {
-    float t = (float)i / DIVISOR;
+  for (int i = 0; i < size; i++) {
+    float t = (float)i / size;
     // BASE * POSITION
     // 20 * 1000^0.95 = 14158..
     // 20 * 1000^0.98 = 17419..
@@ -130,7 +130,7 @@ static void gen_bins(float *bins) {
 static void bin_slice(const float freq, const float s, float *sums,
                       float *max) {
   float bins[DIVISOR + 1];
-  gen_bins(bins);
+  gen_bins(bins, DIVISOR + 1);
   for (int j = 0; j < DIVISOR; j++) {
     if (freq >= bins[j] && freq < bins[j + 1]) {
       sums[j] += s;
