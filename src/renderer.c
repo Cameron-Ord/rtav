@@ -161,28 +161,35 @@ void sdl_gl_set_flags(void) {
 
 void gl_viewport_update(SDL_Window *w, int *ww, int *wh) {
   SDL_GetWindowSize(w, ww, wh);
-  // Todo: scale this by multiples/divisions of the base render size dynamically
+  // Todo: scale this by multiples/divisions of the base render size
+  // dynamically
   int basew = RENDER_WIDTH;
   int baseh = RENDER_HEIGHT;
 
   float scale = 1.0f;
   const float smax = 10.0;
   const float smin = 0.1;
-  const float sf_inc = 1.1;
-  const float sf_dec = 0.95;
+  const float sf_inc = 1.02;
+  const float sf_dec = 0.98;
 
-  if (*ww > RENDER_WIDTH || *wh > RENDER_HEIGHT) {
+  size_t it_tracker = 0;
+
+  if (*ww > RENDER_WIDTH && *wh > RENDER_HEIGHT) {
     while (scale < smax && ((RENDER_WIDTH * (scale * sf_inc)) < *ww &&
                             (RENDER_HEIGHT * (scale * sf_inc)) < *wh)) {
       scale *= sf_inc;
+      it_tracker++;
     }
 
   } else if (*ww < RENDER_WIDTH || *wh < RENDER_HEIGHT) {
     while (scale > smin && ((RENDER_WIDTH * (scale * sf_dec)) > *ww ||
                             (RENDER_HEIGHT * (scale * sf_dec)) > *wh)) {
       scale *= sf_dec;
+      it_tracker++;
     }
   }
+
+  printf("Viewport size recalculated after %zu iterations\n", it_tracker);
 
   basew = RENDER_WIDTH * scale;
   baseh = RENDER_HEIGHT * scale;
