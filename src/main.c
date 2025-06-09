@@ -14,9 +14,6 @@
 #include <SDL2/SDL_opengl.h>
 #include <time.h>
 
-const int BASE_WIDTH = 400;
-const int BASE_HEIGHT = 300;
-
 static SDL_Window *make_window(void);
 static AParams *begin_audio_file(const Entry *const e);
 static AParams *__begin_bad(AParams *p);
@@ -80,7 +77,6 @@ int main(int argc, char **argv) {
   int ww, wh;
   gl_viewport_update(win, &ww, &wh);
   glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
   Renderer_Data rd = load_shaders();
   if (rd.broken) {
@@ -129,6 +125,9 @@ int main(int argc, char **argv) {
         _fail(&run, attempts);
       }
     }
+
+    memset(out_half, 0, sizeof(float) * BUFFER_SIZE / 2);
+    memset(out_buffer, 0, sizeof(Compf) * BUFFER_SIZE);
 
     if (p && p->buffer && get_audio_state() == SDL_AUDIO_PLAYING) {
       const uint32_t remaining = p->len - p->position;
@@ -229,7 +228,7 @@ static SDL_Window *make_window(void) {
       SDL_WINDOW_HIDDEN | SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
   SDL_Window *win =
       SDL_CreateWindow("3DMV", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                       BASE_WIDTH, BASE_HEIGHT, flags);
+                       RENDER_WIDTH, RENDER_HEIGHT, flags);
   return win;
 }
 

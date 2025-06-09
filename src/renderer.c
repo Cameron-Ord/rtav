@@ -83,9 +83,11 @@ static void light_at(unsigned int sid, const float xpos, const float ypos,
                      const float zpos) {
   unsigned int lploc = glGetUniformLocation(sid, "light_pos");
   unsigned int lcloc = glGetUniformLocation(sid, "light_colour");
+  unsigned int vploc = glGetUniformLocation(sid, "view_pos");
 
-  glUniform3f(lploc, xpos, ypos, zpos);
   glUniform3f(lcloc, 0.0f, 0.0f, 1.0f);
+  glUniform3f(lploc, xpos, ypos, zpos);
+  glUniform3f(vploc, 0.0, 0.0, 10.0);
 }
 
 void gl_draw_buffer(Renderer_Data *rd, const float *sums, const int ww,
@@ -99,17 +101,27 @@ void gl_draw_buffer(Renderer_Data *rd, const float *sums, const int ww,
   light_at(rd->shader_program_id, rd->lightx, rd->lighty, rd->lightz);
   for (int i = 0; i < DIVISOR; i++) {
     const float xpos = i * model_width + model_width / 2;
-    const float ypos = sums[i] * (RENDER_HEIGHT * 0.80);
-    MatModel mm = {identity()};
+    const float ceiling = sums[i] * (RENDER_HEIGHT * 0.90) + model_height / 2;
 
-    mat_model_scale(&mm, model_width * 0.9, model_height);
-    //   mat_obj_rotate(&m);
-    mat_model_translate_at(&mm, xpos, ypos);
+    // signal dead as fuck? just skip it
+    if (ceiling < 0.0) {
+      continue;
+    }
 
-    gl_set_uniforms(rd->shader_program_id, &mm, &mo);
-    gl_vertex_bind(rd->VAO);
-    gl_draw_arrays(GL_TRIANGLES, 0, 36);
-    gl_vertex_unbind();
+    float ypos = 0.0f;
+    int j = 0;
+    while (ypos < ceiling && (j * model_height + model_height / 2) < ceiling) {
+      MatModel mm = {identity()};
+      mat_model_scale(&mm, model_width * 0.8, model_height);
+      mat_model_translate_at(&mm, xpos, ypos);
+
+      gl_set_uniforms(rd->shader_program_id, &mm, &mo);
+      gl_vertex_bind(rd->VAO);
+      gl_draw_arrays(GL_TRIANGLES, 0, 36);
+      gl_vertex_unbind();
+      ypos = j * model_height + model_height / 2;
+      j++;
+    }
   }
 }
 
@@ -209,7 +221,7 @@ FILE *open_shader_src(const char *path, const char *fn) {
 Renderer_Data load_shaders(void) {
   // Assume it's failed until its proven otherwise
   Renderer_Data rd = {
-      0, 0, 0, 0, 1, (float)RENDER_WIDTH / 2, (float)RENDER_HEIGHT / 2, 75.0};
+      0, 0, 0, 0, 1, (float)RENDER_WIDTH / 2, (float)RENDER_HEIGHT / 2, 90.0};
   FILE *fvert = NULL;
   FILE *ffrag = NULL;
 
