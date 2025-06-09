@@ -143,8 +143,9 @@ void gl_viewport_update(SDL_Window *w, int *ww, int *wh) {
   int baseh = RENDER_HEIGHT;
 
   float scale = 1.0f;
-  while (RENDER_WIDTH * scale < *ww && RENDER_HEIGHT * scale < *wh) {
-    scale *= 1.05;
+  while (RENDER_WIDTH * (scale * 1.25) < *ww &&
+         RENDER_HEIGHT * (scale * 1.25) < *wh) {
+    scale *= 1.25;
   }
 
   basew = RENDER_WIDTH * scale;
