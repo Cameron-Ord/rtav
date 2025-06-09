@@ -156,9 +156,15 @@ int main(int argc, char **argv) {
         switch (keysym) {
 
         case SDLK_s: {
+          if (rd.lightz + 1.0f < 100.0) {
+            rd.lightz += 1.0f;
+          }
         } break;
 
         case SDLK_d: {
+          if (rd.lightz + -1.0f > 0.1) {
+            rd.lightz += -1.0f;
+          }
         } break;
 
         case SDLK_DOWN: {

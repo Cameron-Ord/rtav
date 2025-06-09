@@ -87,7 +87,7 @@ static void light_at(unsigned int sid, const float xpos, const float ypos,
 
   glUniform3f(lcloc, 0.0f, 0.0f, 1.0f);
   glUniform3f(lploc, xpos, ypos, zpos);
-  glUniform3f(vploc, 0.0, 0.0, 10.0);
+  glUniform3f(vploc, (float)RENDER_WIDTH / 2, (float)RENDER_HEIGHT / 2, 10.0);
 }
 
 void gl_draw_buffer(Renderer_Data *rd, const float *sums, const int ww,
@@ -96,7 +96,7 @@ void gl_draw_buffer(Renderer_Data *rd, const float *sums, const int ww,
   const float model_height = (float)RENDER_HEIGHT / DIVISOR;
 
   MatObj mo = load_mat_obj();
-  mat_view_translate(&mo, 0.0, 0.0, -50.0);
+  mat_view_translate(&mo, 0.0, 0.0, -10.0);
 
   light_at(rd->shader_program_id, rd->lightx, rd->lighty, rd->lightz);
   for (int i = 0; i < DIVISOR; i++) {
@@ -104,7 +104,7 @@ void gl_draw_buffer(Renderer_Data *rd, const float *sums, const int ww,
     const float ceiling = sums[i] * (RENDER_HEIGHT * 0.90) + model_height / 2;
 
     // signal dead as fuck? just skip it
-    if (ceiling < 0.0) {
+    if (ceiling <= 1.0 + model_height / 2) {
       continue;
     }
 
@@ -221,7 +221,7 @@ FILE *open_shader_src(const char *path, const char *fn) {
 Renderer_Data load_shaders(void) {
   // Assume it's failed until its proven otherwise
   Renderer_Data rd = {
-      0, 0, 0, 0, 1, (float)RENDER_WIDTH / 2, (float)RENDER_HEIGHT / 2, 90.0};
+      0, 0, 0, 0, 1, (float)RENDER_WIDTH / 2, (float)RENDER_HEIGHT / 2, 80.0};
   FILE *fvert = NULL;
   FILE *ffrag = NULL;
 
