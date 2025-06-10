@@ -141,7 +141,8 @@ int main(int argc, char **argv) {
       const float *const buffer_at = p->buffer + p->position;
       memcpy(sample_buffer, buffer_at, scount * sizeof(float));
 
-      iter_fft(sample_buffer, hambuf, out_buffer, BUFFER_SIZE);
+      wfunc(sample_buffer, hambuf, BUFFER_SIZE);
+      iter_fft(sample_buffer, out_buffer, BUFFER_SIZE);
       compf_to_float(out_half, out_buffer);
       section_bins(p->sr, out_half, sums);
       interpolate(sums, ssmooth, ssmear, 60);

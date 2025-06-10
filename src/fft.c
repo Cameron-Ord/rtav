@@ -74,10 +74,10 @@ static inline size_t bit_reverse(size_t index, size_t log2n) {
   return reversed;
 }
 
-void iter_fft(float *in, float *coeffs, Compf *out, size_t size) {
+void iter_fft(float *in, Compf *out, size_t size) {
   for (size_t i = 0; i < size; i++) {
     int rev_index = bit_reverse(i, log2(size));
-    out[i] = c_from_real(window(in[rev_index], coeffs[rev_index]));
+    out[i] = c_from_real(in[rev_index]);
   }
 
   const Compf iota = c_from_imag(1.0f);
@@ -101,6 +101,12 @@ void iter_fft(float *in, float *coeffs, Compf *out, size_t size) {
 }
 
 float window(const float in, const float coeff) { return in * coeff; }
+
+void wfunc(float *in, const float *hamming, const int size) {
+  for (int i = 0; i < size; i++) {
+    in[i] = window(in[i], hamming[i]);
+  }
+}
 
 void calculate_window(float *hambuf) {
   const float PI = 3.14159265359f;
