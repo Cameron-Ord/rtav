@@ -1,4 +1,7 @@
 ## 3dmv
+
+![Example](example.png)
+
 Working title 
 
 ### visualizing music with opengl
