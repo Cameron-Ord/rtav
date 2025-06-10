@@ -5,6 +5,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// heheh
+const int smear = 6;
+const int smooth = 9;
+float bins[DIVISOR + 1];
+
 static inline Compf c_from_real(const float real) {
   Compf _complex;
   _complex.real = real;
@@ -113,7 +118,7 @@ void compf_to_float(float *half, Compf *fft_output) {
   }
 }
 
-static void gen_bins(float *bins, const int size) {
+void gen_bins(const int size) {
   const float MAX_FREQ = 20000.0f;
   const float MIN_FREQ = 20.0f;
   const float RATIO = MAX_FREQ / MIN_FREQ;
@@ -130,8 +135,6 @@ static void gen_bins(float *bins, const int size) {
 
 static void bin_slice(const float freq, const float s, float *sums,
                       float *max) {
-  float bins[DIVISOR + 1];
-  gen_bins(bins, DIVISOR + 1);
   for (int j = 0; j < DIVISOR; j++) {
     if (freq >= bins[j] && freq < bins[j + 1]) {
       sums[j] += s;
@@ -160,9 +163,9 @@ float ls(float base, float sm, int amt, int frames) {
   return (base - sm) * amt * (1.0 / frames);
 }
 
-void interpolate(float *sums, float *ssmooth, const int smoothing,
-                 const int frames) {
+void interpolate(float *sums, float *ssmooth, float *ssmear, const int frames) {
   for (int i = 0; i < DIVISOR; i++) {
-    ssmooth[i] += ls(sums[i], ssmooth[i], smoothing, frames);
+    ssmooth[i] += ls(sums[i], ssmooth[i], smooth, frames);
+    ssmear[i] += ls(ssmooth[i], ssmear[i], smear, frames);
   }
 }

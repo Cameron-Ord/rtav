@@ -92,44 +92,50 @@ int main(int argc, char **argv) {
   float hambuf[BUFFER_SIZE];
   memset(hambuf, 0, sizeof(float) * BUFFER_SIZE);
   calculate_window(hambuf);
-
-  SDL_ShowWindow(win);
-
-  const int MAX_ATTEMPTS = 6;
-  int song_queued = 0, attempts = 0;
-  int run = 1;
+  gen_bins(DIVISOR + 1);
 
   float sample_buffer[BUFFER_SIZE];
   Compf out_buffer[BUFFER_SIZE];
   float out_half[BUFFER_SIZE / 2];
   float sums[DIVISOR];
   float ssmooth[DIVISOR];
+  float ssmear[DIVISOR];
   memset(ssmooth, 0, sizeof(float) * DIVISOR);
+  memset(ssmear, 0, sizeof(float) * DIVISOR);
+
+  const int MAX_ATTEMPTS = 6;
+  int song_queued = 0, attempts = 0;
+  int run = 1;
 
   uint32_t lastinput = SDL_GetTicks64();
+  SDL_ShowWindow(win);
 
   while (run) {
     const uint32_t start = SDL_GetTicks64();
+    gl_clear_canvas();
 
     song_queued = query_audio_position(&p);
     if (song_queued && p) {
       p = free_params(p);
       current = (current + 1 != eend) ? current + 1 : estart;
       memset(ssmooth, 0, sizeof(float) * DIVISOR);
+      memset(ssmear, 0, sizeof(float) * DIVISOR);
       p = _next(&attempts, current);
 
     } else if (!song_queued && !p) {
       current = (current + 1 != eend) ? current + 1 : estart;
       memset(ssmooth, 0, sizeof(float) * DIVISOR);
+      memset(ssmear, 0, sizeof(float) * DIVISOR);
       if (!(p = _next(&attempts, current)) && attempts > MAX_ATTEMPTS) {
         _fail(&run, attempts);
       }
     }
 
-    memset(out_half, 0, sizeof(float) * BUFFER_SIZE / 2);
-    memset(out_buffer, 0, sizeof(Compf) * BUFFER_SIZE);
-
     if (p && p->buffer && get_audio_state() == SDL_AUDIO_PLAYING) {
+      memset(sums, 0, sizeof(float) * DIVISOR);
+      memset(out_half, 0, sizeof(float) * BUFFER_SIZE / 2);
+      memset(out_buffer, 0, sizeof(Compf) * BUFFER_SIZE);
+
       const uint32_t remaining = p->len - p->position;
       const uint32_t scount = _scount(remaining);
       const float *const buffer_at = p->buffer + p->position;
@@ -137,13 +143,9 @@ int main(int argc, char **argv) {
 
       iter_fft(sample_buffer, hambuf, out_buffer, BUFFER_SIZE);
       compf_to_float(out_half, out_buffer);
-      memset(sums, 0, sizeof(float) * DIVISOR);
       section_bins(p->sr, out_half, sums);
-      interpolate(sums, ssmooth, 8, 60);
+      interpolate(sums, ssmooth, ssmear, 60);
     }
-
-    glClearColor(0.0, 0.0, 0.0, 0.0);
-    glClear(GL_COLOR_BUFFER_BIT);
 
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
@@ -155,22 +157,16 @@ int main(int argc, char **argv) {
         int keysym = e.key.keysym.sym;
         switch (keysym) {
 
-        case SDLK_s: {
-          if (rd.lightz + 1.0f < 100.0) {
-            rd.lightz += 1.0f;
-          }
-        } break;
-
-        case SDLK_d: {
-          if (rd.lightz + -1.0f > 0.1) {
-            rd.lightz += -1.0f;
-          }
+        case SDLK_p: {
+          toggle_pause();
         } break;
 
         case SDLK_DOWN: {
+          _vol(-0.25);
         } break;
 
         case SDLK_UP: {
+          _vol(0.25);
         } break;
 
         case SDLK_LEFT: {
@@ -215,7 +211,7 @@ int main(int argc, char **argv) {
       }
     }
 
-    gl_draw_buffer(&rd, ssmooth, ww, wh);
+    gl_draw_buffer(&rd, ssmooth, ssmear);
     SDL_GL_SwapWindow(win);
 
     const uint32_t duration = SDL_GetTicks64() - start;

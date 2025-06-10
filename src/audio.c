@@ -16,8 +16,8 @@ float vol = 1.0f;
 SDL_AudioDeviceID dev;
 SDL_AudioSpec spec = {0};
 
-// The only exposed function in this file should be read_file() and
-// toggle_pause(), the state is handled internally
+// The only exposed function in this file should be read_file(),
+// toggle_pause() and _vol(), the state is handled internally in this src file
 
 static int scmp(AParams *data);
 static void callback(void *usrdata, unsigned char *stream, int len);
@@ -26,12 +26,36 @@ static int open_device(void);
 static void close_device(void);
 static const char *format_to_str(const int format);
 
-float root_mean_squared(const float *slice, const size_t size) {
-  float sum = 0.0f;
-  for (size_t i = 0; i < size; i++) {
-    sum += slice[i] * slice[i];
+// float root_mean_squared(const float *slice, const size_t size) {
+// float sum = 0.0f;
+// for (size_t i = 0; i < size; i++) {
+// sum += slice[i] * slice[i];
+//}
+// return sqrtf(sum / size);
+//}
+
+static float vclampf(const float v) {
+  if (v > 1.0) {
+    return 1.0;
   }
-  return sqrtf(sum / size);
+
+  if (v < 0.0) {
+    return 0.0;
+  }
+
+  return v;
+}
+
+static void vol_change_commit(const float v) {
+  if (v >= 0.0 && v <= 1.0) {
+    vol = v;
+  }
+}
+
+void _vol(const float change) {
+  return (vol + change >= 0.0 && vol + change <= 1.0)
+             ? vol_change_commit(vol + change)
+             : vclampf(vol + change);
 }
 
 int get_audio_state(void) {

@@ -12,6 +12,19 @@
 #include <SDL2/SDL_timer.h>
 #include <SDL2/SDL_video.h>
 
+typedef struct {
+  int x, y, z;
+} iVec3;
+
+typedef struct {
+  float x, y, z;
+} fVec3;
+
+const fVec3 bg = {41.0 / 255, 44.0 / 255, 60.0 / 255};
+const fVec3 cube_sample = {140.0 / 255, 170.0 / 255, 238.0 / 255};
+const fVec3 cube_smear = {166.0 / 255, 209.0 / 255, 137.0 / 255};
+const fVec3 light = {133.0 / 255, 193.0 / 255, 220.0 / 255};
+
 const size_t SHADER_SRC_MAX = 2048;
 static int shader_src_fill(FILE *file, char *srcbuf);
 
@@ -51,7 +64,7 @@ static void mat_model_rotate(MatModel *mo) {
   static float angle;
   mo->model = multiply_mat(multiply_mat(rotate_matx(angle), rotate_maty(angle)),
                            mo->model);
-  angle = (angle + 0.025f > 360.0f) ? angle - 360.0f : angle + 0.025;
+  angle = (angle + 0.025f > 1.0f) ? angle - 1.0f : angle + 0.025;
 }
 
 static void gl_vertex_bind(const unsigned int VAO) { glBindVertexArray(VAO); }
@@ -64,11 +77,8 @@ static void gl_draw_arrays(GLenum MODE, const int first, const int count) {
   glDrawArrays(MODE, first, count);
 }
 
-static void gl_set_uniforms(const unsigned int sid, MatModel *mm, MatObj *mo) {
-  gl_prog_use(sid);
-
-  unsigned int lcloc = glGetUniformLocation(sid, "object_colour");
-  glUniform3f(lcloc, 1.0, 1.0, 1.0);
+static void gl_set_uniforms(const unsigned int sid, const MatModel *const mm,
+                            const MatObj *const mo) {
 
   unsigned int mloc = glGetUniformLocation(sid, "model");
   unsigned int vloc = glGetUniformLocation(sid, "view");
@@ -79,47 +89,89 @@ static void gl_set_uniforms(const unsigned int sid, MatModel *mm, MatObj *mo) {
   glUniformMatrix4fv(vloc, 1, GL_TRUE, &mo->view.m0);
   glUniformMatrix4fv(ploc, 1, GL_TRUE, &mo->proj.m0);
 }
+static void gl_set_obj_colour(const unsigned int sid, MatModel *const mm,
+                              const fVec3 *const col) {
+  unsigned int lcloc = glGetUniformLocation(sid, "object_colour");
+  glUniform3f(lcloc, col->x, col->y, col->z);
+}
+
 static void light_at(unsigned int sid, const float xpos, const float ypos,
                      const float zpos) {
   unsigned int lploc = glGetUniformLocation(sid, "light_pos");
   unsigned int lcloc = glGetUniformLocation(sid, "light_colour");
   unsigned int vploc = glGetUniformLocation(sid, "view_pos");
 
-  glUniform3f(lcloc, 0.0f, 0.0f, 1.0f);
+  glUniform3f(lcloc, light.x, light.y, light.z);
   glUniform3f(lploc, xpos, ypos, zpos);
   glUniform3f(vploc, (float)RENDER_WIDTH / 2, (float)RENDER_HEIGHT / 2, 10.0);
 }
 
-void gl_draw_buffer(Renderer_Data *rd, const float *sums, const int ww,
-                    const int wh) {
+static void gl_uniform_and_draw(const unsigned int sid, const MatObj *const mo,
+                                const MatModel *const mm,
+                                const unsigned int VAO) {
+  gl_set_uniforms(sid, mm, mo);
+  gl_vertex_bind(VAO);
+  gl_draw_arrays(GL_TRIANGLES, 0, 36);
+  gl_vertex_unbind();
+}
+
+void gl_draw_buffer(Renderer_Data *rd, const float *smthframes,
+                    const float *smrframes) {
+  const unsigned int sid = rd->shader_program_id;
+  gl_prog_use(sid);
+
   const float model_width = (float)RENDER_WIDTH / DIVISOR;
   const float model_height = (float)RENDER_HEIGHT / DIVISOR;
 
   MatObj mo = load_mat_obj();
   mat_view_translate(&mo, 0.0, 0.0, -10.0);
 
-  light_at(rd->shader_program_id, rd->lightx, rd->lighty, rd->lightz);
   for (int i = 0; i < DIVISOR; i++) {
-    const float xpos = i * model_width + model_width / 2;
-    const float ceiling = sums[i] * (RENDER_HEIGHT * 0.90) + model_height / 2;
+    const float woffset = model_width / 2;
+    const float hoffset = model_height / 2;
 
-    if (ceiling < model_height + model_height / 2) {
+    const float xpos = i * model_width + woffset;
+
+    const int crow = roundf(smthframes[i] * DIVISOR);
+    const int frow = roundf(smrframes[i] * DIVISOR);
+
+    if (crow == 0 && frow == 0) {
       continue;
     }
 
-    // offset to avoid starting centered
-    float ypos = model_height / 2;
-    int j = 0;
-    while (ypos < ceiling && (j * model_height + model_height / 2) < ceiling) {
-      MatModel mm = {identity()};
-      mat_model_scale(&mm, model_width * 0.75, model_height * 0.75);
-      mat_model_translate_at(&mm, xpos, ypos);
+    const int ceil_grid_loc = crow * model_height;
+    const int fall_grid_loc = frow * model_height;
 
-      gl_set_uniforms(rd->shader_program_id, &mm, &mo);
-      gl_vertex_bind(rd->VAO);
-      gl_draw_arrays(GL_TRIANGLES, 0, 36);
-      gl_vertex_unbind();
-      ypos = j * model_height + model_height / 2;
+    light_at(sid, xpos, ((crow + 1) * model_height), 55.0);
+
+    const float scalew = model_width * 0.75;
+    const float scaleh = model_height * 0.75;
+
+    if (frow > crow) {
+      int j = frow;
+      while (j > crow && j > 0) {
+        MatModel mm = {identity()};
+        const int cube_y = j * model_height + hoffset;
+
+        gl_set_obj_colour(sid, &mm, &cube_smear);
+        mat_model_scale(&mm, scalew, scaleh);
+        mat_model_translate_at(&mm, xpos, cube_y);
+
+        gl_uniform_and_draw(sid, &mo, &mm, rd->VAO);
+        j--;
+      }
+    }
+
+    int j = 0;
+    while (j <= crow) {
+      MatModel mm = {identity()};
+      const int cube_y = j * model_height + hoffset;
+
+      gl_set_obj_colour(sid, &mm, &cube_sample);
+      mat_model_scale(&mm, scalew, scaleh);
+      mat_model_translate_at(&mm, xpos, cube_y);
+
+      gl_uniform_and_draw(sid, &mo, &mm, rd->VAO);
       j++;
     }
   }
@@ -159,6 +211,11 @@ void sdl_gl_set_flags(void) {
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 }
 
+void gl_clear_canvas(void) {
+  glClearColor(bg.x, bg.y, bg.z, 1.0);
+  glClear(GL_COLOR_BUFFER_BIT);
+}
+
 void gl_viewport_update(SDL_Window *w, int *ww, int *wh) {
   SDL_GetWindowSize(w, ww, wh);
   // Todo: scale this by multiples/divisions of the base render size
@@ -169,8 +226,8 @@ void gl_viewport_update(SDL_Window *w, int *ww, int *wh) {
   float scale = 1.0f;
   const float smax = 10.0;
   const float smin = 0.1;
-  const float sf_inc = 1.02;
-  const float sf_dec = 0.98;
+  const float sf_inc = 1.04;
+  const float sf_dec = 0.96;
 
   size_t it_tracker = 0;
 
@@ -188,8 +245,6 @@ void gl_viewport_update(SDL_Window *w, int *ww, int *wh) {
       it_tracker++;
     }
   }
-
-  printf("Viewport size recalculated after %zu iterations\n", it_tracker);
 
   basew = RENDER_WIDTH * scale;
   baseh = RENDER_HEIGHT * scale;

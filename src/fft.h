@@ -7,11 +7,11 @@ typedef struct {
   float imag;
 } Compf;
 
+void gen_bins(const int size);
 float window(const float in, const float coeff);
 void calculate_window(float *hambuf);
 void iter_fft(float *in, float *hambuf, Compf *out, size_t size);
 void compf_to_float(float *half, Compf *fft_output);
 void section_bins(const int sr, float *half, float *sums);
-void interpolate(float *sums, float *ssmooth, const int smoothing,
-                 const int frames);
+void interpolate(float *sums, float *ssmooth, float *ssmear, const int frames);
 #endif

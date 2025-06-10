@@ -10,8 +10,9 @@ typedef struct {
   float lightx, lighty, lightz;
 } Renderer_Data;
 
-void gl_draw_buffer(Renderer_Data *rd, const float *sums, const int ww,
-                    const int wh);
+void gl_clear_canvas(void);
+void gl_draw_buffer(Renderer_Data *rd, const float *smthframes,
+                    const float *smrframes);
 void sdl_gl_set_flags(void);
 void gl_viewport_update(SDL_Window *w, int *ww, int *wh);
 int check_link_state(const unsigned int *program);
