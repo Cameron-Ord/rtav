@@ -20,4 +20,4 @@ If you're on linux: This project uses cmake
 1. ```git clone https://github.com/Cameron-Ord/3dmv && cd 3dmv```
 > Note: you can pass -DSHADER_DIR="/absolute/path/to/dir" as an option to specify a directory for shader files if needed. Defaults to /usr/local/share/3dmv
 2. ```cmake -B build && cmake --build build```
-3. Move the shader files to the directory (if specified) or do ```sudo -p mkdir /usr/local/share/3dmv && cp shader/frag.fs shader/vert.vs /usr/local/share/3dmv/``` if left blank
+3. Move the shader files to the directory (if specified) or do ```sudo mkdir -p /usr/local/share/3dmv && cp shader/frag.fs shader/vert.vs /usr/local/share/3dmv/``` if left blank
