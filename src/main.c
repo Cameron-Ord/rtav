@@ -236,6 +236,8 @@ int main(int argc, char **argv)
         }
     }
 
+    p = free_params(p);
+
     glDeleteProgram(rd.shader_program_id);
     glDeleteBuffers(1, &rd.VBO);
     glDeleteVertexArrays(1, &rd.VAO);

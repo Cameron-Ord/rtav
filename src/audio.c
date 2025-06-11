@@ -59,7 +59,7 @@ void _vol(const float change)
 {
     return (vol + change >= 0.0 && vol + change <= 1.0)
                ? vol_change_commit(vol + change)
-               : vclampf(vol + change);
+               : vol_change_commit(vclampf(vol + change));
 }
 
 int get_audio_state(void)
