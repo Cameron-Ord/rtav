@@ -1,4 +1,0 @@
-#!/bin/bash
-
-sudo python3 install.py
-3dmv ~/Music/de
