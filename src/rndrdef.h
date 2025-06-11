@@ -1,6 +1,6 @@
 #ifndef RNDRDEF_H
 #define RNDRDEF_H
-#define RENDER_WIDTH 640
-#define RENDER_HEIGHT 480
-#define DIVISOR 40
+#define RENDER_WIDTH 1024
+#define RENDER_HEIGHT 768
+#define DIVISOR 32
 #endif

@@ -12,6 +12,11 @@
 #include <SDL2/SDL_timer.h>
 #include <SDL2/SDL_video.h>
 
+const float smin = 0.1;
+const float smax = 4.0;
+const float fdec = 0.99;
+const float finc = 1.01;
+
 typedef struct {
   int x, y, z;
 } iVec3;
@@ -46,7 +51,7 @@ static MatObj load_mat_obj() {
 static void mat_model_scale(MatModel *const mo, const float model_width,
                             const float model_height) {
   mo->model = multiply_mat(
-      scale_mat(model_width, model_height, 15 /*LONG BIG LONG DEEP*/),
+      scale_mat(model_width, model_height, 5.0 /*LONG BIG LONG DEEP*/),
       mo->model);
 }
 
@@ -111,7 +116,7 @@ static void gl_uniform_and_draw(const unsigned int sid, const MatObj *const mo,
                                 const unsigned int VAO) {
   gl_set_uniforms(sid, mm, mo);
   gl_vertex_bind(VAO);
-  gl_draw_arrays(GL_TRIANGLES, 0, 36);
+  gl_draw_arrays(GL_TRIANGLES, 0, 6);
   gl_vertex_unbind();
 }
 
@@ -125,12 +130,11 @@ void gl_draw_buffer(Renderer_Data *rd, const float *smthframes,
 
   MatObj mo = load_mat_obj();
   mat_view_translate(&mo, 0.0, 0.0, -10.0);
+  const float wspacing = model_width / 4;
+  const float hspacing = model_height / 4;
 
   for (int i = 0; i < DIVISOR; i++) {
-    const float woffset = model_width / 2;
-    const float hoffset = model_height / 2;
-
-    const float xpos = i * model_width + woffset;
+    const float xpos = i * model_width + wspacing / 2;
 
     const int crow = roundf(smthframes[i] * DIVISOR);
     const int frow = roundf(smrframes[i] * DIVISOR);
@@ -142,19 +146,16 @@ void gl_draw_buffer(Renderer_Data *rd, const float *smthframes,
     const int ceil_grid_loc = crow * model_height;
     const int fall_grid_loc = frow * model_height;
 
-    light_at(sid, xpos, ((crow + 1) * model_height), 55.0);
-
-    const float scalew = model_width * 0.75;
-    const float scaleh = model_height * 0.75;
+    light_at(sid, xpos, ((crow + 1) * model_height), 50);
 
     if (frow > crow) {
       int j = frow;
       while (j > crow && j > 0) {
         MatModel mm = {identity()};
-        const int cube_y = j * model_height + hoffset;
+        const int cube_y = j * model_height + hspacing / 2;
 
         gl_set_obj_colour(sid, &mm, &cube_smear);
-        mat_model_scale(&mm, scalew, scaleh);
+        mat_model_scale(&mm, model_width - wspacing, model_height - hspacing);
         mat_model_translate_at(&mm, xpos, cube_y);
 
         gl_uniform_and_draw(sid, &mo, &mm, rd->VAO);
@@ -165,10 +166,10 @@ void gl_draw_buffer(Renderer_Data *rd, const float *smthframes,
     int j = 0;
     while (j <= crow) {
       MatModel mm = {identity()};
-      const int cube_y = j * model_height + hoffset;
+      const int cube_y = j * model_height;
 
       gl_set_obj_colour(sid, &mm, &cube_sample);
-      mat_model_scale(&mm, scalew, scaleh);
+      mat_model_scale(&mm, model_width - wspacing, model_height);
       mat_model_translate_at(&mm, xpos, cube_y);
 
       gl_uniform_and_draw(sid, &mo, &mm, rd->VAO);
@@ -216,38 +217,51 @@ void gl_clear_canvas(void) {
   glClear(GL_COLOR_BUFFER_BIT);
 }
 
+static int will_fit(const float scale) {
+  return (int)(RENDER_HEIGHT * scale) % DIVISOR == 0 &&
+         (int)(RENDER_WIDTH * scale) % DIVISOR == 0;
+}
+
+static int w_greater(const float scale, const float factor, const int w) {
+  return RENDER_WIDTH * (scale * factor) > w;
+}
+
+static int h_greater(const float scale, const float factor, const int h) {
+  return RENDER_HEIGHT * (scale * factor) > h;
+}
+
+static int or_greater(const float scale, const float factor, const int w,
+                      const int h) {
+  return w_greater(scale, factor, w) || h_greater(scale, factor, h);
+}
+
+static int both_greater(const float scale, const float factor, const int w,
+                        const int h) {
+  return w_greater(scale, factor, w) && h_greater(scale, factor, h);
+}
+
+static float resize_query(const int w, const int h) {
+  float scale = 1.0f;
+  if (w < RENDER_WIDTH || h < RENDER_HEIGHT) {
+    while (scale > smin && or_greater(scale, fdec, w, h)) {
+      scale *= fdec;
+    }
+  } else if (w > RENDER_WIDTH || h > RENDER_HEIGHT) {
+    while (scale < smax && !both_greater(scale, finc, w, h)) {
+      scale *= finc;
+    }
+  }
+  return scale;
+}
+
 void gl_viewport_update(SDL_Window *w, int *ww, int *wh) {
   SDL_GetWindowSize(w, ww, wh);
   // Todo: scale this by multiples/divisions of the base render size
   // dynamically
-  int basew = RENDER_WIDTH;
-  int baseh = RENDER_HEIGHT;
+  const float scale = resize_query(*ww, *wh);
 
-  float scale = 1.0f;
-  const float smax = 10.0;
-  const float smin = 0.1;
-  const float sf_inc = 1.04;
-  const float sf_dec = 0.96;
-
-  size_t it_tracker = 0;
-
-  if (*ww > RENDER_WIDTH && *wh > RENDER_HEIGHT) {
-    while (scale < smax && ((RENDER_WIDTH * (scale * sf_inc)) < *ww &&
-                            (RENDER_HEIGHT * (scale * sf_inc)) < *wh)) {
-      scale *= sf_inc;
-      it_tracker++;
-    }
-
-  } else if (*ww < RENDER_WIDTH || *wh < RENDER_HEIGHT) {
-    while (scale > smin && ((RENDER_WIDTH * (scale * sf_dec)) > *ww ||
-                            (RENDER_HEIGHT * (scale * sf_dec)) > *wh)) {
-      scale *= sf_dec;
-      it_tracker++;
-    }
-  }
-
-  basew = RENDER_WIDTH * scale;
-  baseh = RENDER_HEIGHT * scale;
+  const int basew = RENDER_WIDTH * scale;
+  const int baseh = RENDER_HEIGHT * scale;
 
   const int x = (*ww - basew) * 0.5;
   const int y = (*wh - baseh) * 0.5;
@@ -296,7 +310,7 @@ FILE *open_shader_src(const char *path, const char *fn) {
 Renderer_Data load_shaders(void) {
   // Assume it's failed until its proven otherwise
   Renderer_Data rd = {
-      0, 0, 0, 0, 1, (float)RENDER_WIDTH / 2, (float)RENDER_HEIGHT / 2, 80.0};
+      0, 0, 0, 0, 1, (float)RENDER_WIDTH / 2, (float)RENDER_HEIGHT / 2, 0.0};
   FILE *fvert = NULL;
   FILE *ffrag = NULL;
 
@@ -374,36 +388,18 @@ void gl_data_construct(Renderer_Data *rd) {
   // const float scaled = 1.0 / sqrt(1.0 + g * g);
   // const float x = scaled;
   // const float y = g * scaled;
+  //
+
   float vertices[] = {
-      -0.5f, -0.5f, -0.5f, 0.0f,  0.0f,  -1.0f, 0.5f,  -0.5f, -0.5f,
-      0.0f,  0.0f,  -1.0f, 0.5f,  0.5f,  -0.5f, 0.0f,  0.0f,  -1.0f,
-      0.5f,  0.5f,  -0.5f, 0.0f,  0.0f,  -1.0f, -0.5f, 0.5f,  -0.5f,
-      0.0f,  0.0f,  -1.0f, -0.5f, -0.5f, -0.5f, 0.0f,  0.0f,  -1.0f,
+      // Position         // Normal
+      0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, // Bottom-left
+      1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, // Bottom-right
+      1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, // Top-right
 
-      -0.5f, -0.5f, 0.5f,  0.0f,  0.0f,  1.0f,  0.5f,  -0.5f, 0.5f,
-      0.0f,  0.0f,  1.0f,  0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-      0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  -0.5f, 0.5f,  0.5f,
-      0.0f,  0.0f,  1.0f,  -0.5f, -0.5f, 0.5f,  0.0f,  0.0f,  1.0f,
-
-      -0.5f, 0.5f,  0.5f,  -1.0f, 0.0f,  0.0f,  -0.5f, 0.5f,  -0.5f,
-      -1.0f, 0.0f,  0.0f,  -0.5f, -0.5f, -0.5f, -1.0f, 0.0f,  0.0f,
-      -0.5f, -0.5f, -0.5f, -1.0f, 0.0f,  0.0f,  -0.5f, -0.5f, 0.5f,
-      -1.0f, 0.0f,  0.0f,  -0.5f, 0.5f,  0.5f,  -1.0f, 0.0f,  0.0f,
-
-      0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.5f,  0.5f,  -0.5f,
-      1.0f,  0.0f,  0.0f,  0.5f,  -0.5f, -0.5f, 1.0f,  0.0f,  0.0f,
-      0.5f,  -0.5f, -0.5f, 1.0f,  0.0f,  0.0f,  0.5f,  -0.5f, 0.5f,
-      1.0f,  0.0f,  0.0f,  0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
-
-      -0.5f, -0.5f, -0.5f, 0.0f,  -1.0f, 0.0f,  0.5f,  -0.5f, -0.5f,
-      0.0f,  -1.0f, 0.0f,  0.5f,  -0.5f, 0.5f,  0.0f,  -1.0f, 0.0f,
-      0.5f,  -0.5f, 0.5f,  0.0f,  -1.0f, 0.0f,  -0.5f, -0.5f, 0.5f,
-      0.0f,  -1.0f, 0.0f,  -0.5f, -0.5f, -0.5f, 0.0f,  -1.0f, 0.0f,
-
-      -0.5f, 0.5f,  -0.5f, 0.0f,  1.0f,  0.0f,  0.5f,  0.5f,  -0.5f,
-      0.0f,  1.0f,  0.0f,  0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
-      0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  -0.5f, 0.5f,  0.5f,
-      0.0f,  1.0f,  0.0f,  -0.5f, 0.5f,  -0.5f, 0.0f,  1.0f,  0.0f};
+      1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, // Top-right
+      0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, // Top-left
+      0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f  // Bottom-left
+  };
 
   glGenVertexArrays(1, &rd->VAO);
   glGenBuffers(1, &rd->VBO);
