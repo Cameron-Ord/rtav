@@ -203,7 +203,7 @@ static int shader_src_fill(FILE *file, char *srcbuf)
         }
         srcbuf[i] = '\0';
         printf("\nLOADED SHADER:\n%s\n", srcbuf);
-        if (!fclose(file)) {
+        if (fclose(file) == EOF) {
             printf("Could not close file: %s\n", strerror(errno));
         }
     }

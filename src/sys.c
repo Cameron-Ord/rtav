@@ -104,7 +104,8 @@ int parse_headers(Entries *ent)
             } else {
                 continue;
             }
-            if (!fclose(file)) {
+
+            if (fclose(file) == EOF) {
                 printf("Could not close file: %s\n", strerror(errno));
             }
 
