@@ -14,4 +14,10 @@ Working title
 > I am only allowing the following audio formats: FLAC, AIFF, MPEG, WAV, OGG
 
 ## Building
-While i am using SDL2 and OpenGL right now the program is only running on linux since it uses dirent to read files. I don't use windows, and this is just a small project for myself so I probably won't add any WinAPI code for handling dirs/paths.
+While I am using SDL2 and OpenGL right now the program is only running on linux since it uses dirent to read files. I don't use windows, and this is just a small project for myself so I probably won't add any WinAPI code for handling dirs/paths.
+
+If you're on linux: This project uses cmake
+1. ```git clone https://github.com/Cameron-Ord/3dmv && cd 3dmv```
+> Note: you can pass -DSHADER_DIR="/absolute/path/to/dir" as an option to specify a directory for shader files if needed. Defaults to /usr/local/share/3dmv
+2. ```cmake -B build && cmake --build build```
+3. Move the shader files to the directory (if specified) or do ```sudo -p mkdir /usr/local/share/3dmv && cp shader/frag.fs shader/vert.vs /usr/local/share/3dmv/``` if left blank
