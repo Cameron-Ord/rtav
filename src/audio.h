@@ -26,5 +26,6 @@ int dev_from_data(AParams *data);
 void _vol(float change);
 void audio_start(void);
 void audio_end(void);
+void close_device();
 int callback_check_pos(uint32_t len, uint32_t pos);
 #endif

@@ -24,8 +24,9 @@ static int scmp(AParams *data);
 static void callback(void *usrdata, unsigned char *stream, int len);
 static void set_audio_spec(AParams *data);
 static int open_device(void);
-static void close_device(void);
 static const char *format_to_str(int format);
+static float vclampf(float v);
+static void vol_change_commit(float v);
 
 // float root_mean_squared(const float *slice, const size_t size) {
 // float sum = 0.0f;
@@ -141,10 +142,13 @@ static int open_device(void)
 }
 
 // Device closing blocks until it is finished.
-static void close_device(void)
+void close_device(void)
 {
-    SDL_CloseAudioDevice(dev);
-    dev = 0;
+    if (dev) {
+        SDL_ClearQueuedAudio(dev);
+        SDL_CloseAudioDevice(dev);
+        dev = 0;
+    }
 }
 
 static int dstate(void)
