@@ -12,17 +12,34 @@
 #include <GL/gl.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
+#include <assert.h>
 #include <time.h>
+
+typedef struct
+{
+    float sample_buffer[BUFFER_SIZE];
+    Compf out_buffer[BUFFER_SIZE];
+    float out_half[BUFFER_SIZE];
+} Raw;
+
+typedef struct
+{
+    float sums[DIVISOR];
+    float ssmooth[DIVISOR];
+    float ssmear[DIVISOR];
+} Transformed;
 
 static SDL_Window *make_window(void);
 static AParams *begin_audio_file(const Entry *e);
 static AParams *__begin_bad(AParams *p);
 static AParams *__begin_ok(AParams *p);
 static int query_audio_position(AParams **p);
-static AParams *_next(int *attempts, const Entry *current);
+static AParams *prepare_next(int *attempts, const Entry *current);
+static AParams *find_queued(int *attempts, const Entry **current, const Entry *estart, const Entry *eend, int dir);
 static void *free_params(AParams *p);
 static void _fail(int *run, int attempts);
 static uint32_t _scount(uint32_t remaining);
+static void wipe(Transformed *tf, Raw *raw);
 
 int main(int argc, char **argv)
 {
@@ -88,22 +105,15 @@ int main(int argc, char **argv)
 
     Entry *const estart = ents.list;
     Entry *const eend = ents.list + ents.size;
-    Entry *current = estart;
+    const Entry *current = estart;
     AParams *p = begin_audio_file(current);
 
     float hambuf[BUFFER_SIZE];
-    memset(hambuf, 0, sizeof(float) * BUFFER_SIZE);
+    Raw raw = { 0 };
+    Transformed tf = { 0 };
+
     calculate_window(hambuf);
     gen_bins(DIVISOR + 1);
-
-    float sample_buffer[BUFFER_SIZE];
-    Compf out_buffer[BUFFER_SIZE];
-    float out_half[BUFFER_SIZE / 2];
-    float sums[DIVISOR];
-    float ssmooth[DIVISOR];
-    float ssmear[DIVISOR];
-    memset(ssmooth, 0, sizeof(float) * DIVISOR);
-    memset(ssmear, 0, sizeof(float) * DIVISOR);
 
     const int MAX_ATTEMPTS = 6;
     int song_queued = 0, attempts = 0;
@@ -118,37 +128,30 @@ int main(int argc, char **argv)
 
         song_queued = query_audio_position(&p);
         if (song_queued && p) {
+            wipe(&tf, &raw);
             p = free_params(p);
-            current = (current + 1 < eend) ? current + 1 : estart;
-            memset(ssmooth, 0, sizeof(float) * DIVISOR);
-            memset(ssmear, 0, sizeof(float) * DIVISOR);
-            p = _next(&attempts, current);
+            p = find_queued(&attempts, &current, estart, eend, 1);
 
         } else if (!song_queued && !p) {
-            current = (current + 1 < eend) ? current + 1 : estart;
-            memset(ssmooth, 0, sizeof(float) * DIVISOR);
-            memset(ssmear, 0, sizeof(float) * DIVISOR);
-            p = _next(&attempts, current);
+            wipe(&tf, &raw);
+            p = find_queued(&attempts, &current, estart, eend, 1);
             if (!p && attempts > MAX_ATTEMPTS) {
                 _fail(&run, attempts);
             }
         }
 
         if (p && p->buffer && get_audio_state() == SDL_AUDIO_PLAYING) {
-            memset(sums, 0, sizeof(float) * DIVISOR);
-            memset(out_half, 0, sizeof(float) * BUFFER_SIZE / 2);
-            memset(out_buffer, 0, sizeof(Compf) * BUFFER_SIZE);
-
+            memset(&raw, 0, sizeof(Raw));
             const uint32_t remaining = p->len - p->position;
             const uint32_t scount = _scount(remaining);
             const float *const buffer_at = p->buffer + p->position;
-            memcpy(sample_buffer, buffer_at, scount * sizeof(float));
+            memcpy(raw.sample_buffer, buffer_at, scount * sizeof(float));
 
-            wfunc(sample_buffer, hambuf, BUFFER_SIZE);
-            iter_fft(sample_buffer, out_buffer, BUFFER_SIZE);
-            compf_to_float(out_half, out_buffer);
-            section_bins(p->sr, out_half, sums);
-            interpolate(sums, ssmooth, ssmear, 60);
+            wfunc(raw.sample_buffer, hambuf, BUFFER_SIZE);
+            iter_fft(raw.sample_buffer, raw.out_buffer, BUFFER_SIZE);
+            compf_to_float(raw.out_half, raw.out_buffer);
+            section_bins(p->sr, raw.out_half, tf.sums);
+            interpolate(tf.sums, tf.ssmooth, tf.ssmear, 60);
         }
 
         SDL_Event e;
@@ -179,26 +182,22 @@ int main(int argc, char **argv)
 
                 case SDLK_LEFT:
                 {
-                    float cd = 250;
+                    float cd = 100;
                     if (SDL_GetTicks64() - lastinput >= cd) {
                         audio_end();
                         p = free_params(p);
-                        current = (current > estart) ? current - 1 : eend - 1;
-                        memset(ssmooth, 0, sizeof(float) * DIVISOR);
-                        p = _next(&attempts, current);
+                        p = find_queued(&attempts, &current, estart, eend, -1);
                         lastinput = SDL_GetTicks64();
                     }
                 } break;
 
                 case SDLK_RIGHT:
                 {
-                    float cd = 250;
+                    float cd = 100;
                     if (SDL_GetTicks64() - lastinput >= cd) {
                         audio_end();
                         p = free_params(p);
-                        current = (current + 1 < eend) ? current + 1 : estart;
-                        memset(ssmooth, 0, sizeof(float) * DIVISOR);
-                        p = _next(&attempts, current);
+                        p = find_queued(&attempts, &current, estart, eend, 1);
                         lastinput = SDL_GetTicks64();
                     }
                 } break;
@@ -225,7 +224,7 @@ int main(int argc, char **argv)
             }
         }
 
-        gl_draw_buffer(&rd, ssmooth, ssmear);
+        gl_draw_buffer(&rd, tf.ssmooth, tf.ssmear);
         SDL_GL_SwapWindow(win);
 
         const uint32_t duration = SDL_GetTicks64() - start;
@@ -315,7 +314,7 @@ static int query_audio_position(AParams **p)
     }
 }
 
-static AParams *_next(int *attempts, const Entry *const current)
+static AParams *prepare_next(int *attempts, const Entry *const current)
 {
     AParams *p = begin_audio_file(current);
     int cond = p != NULL;
@@ -343,4 +342,34 @@ static void _fail(int *run, const int attempts)
 static uint32_t _scount(const uint32_t remaining)
 {
     return (BUFFER_SIZE < remaining) ? BUFFER_SIZE : remaining;
+}
+
+static void wipe(Transformed *tf, Raw *raw)
+{
+    memset(tf, 0, sizeof(Transformed));
+    memset(raw, 0, sizeof(Raw));
+}
+
+static AParams *find_queued(int *attempts, const Entry **current, const Entry *const estart, const Entry *eend, const int dir)
+{
+    if ((current && *current) && estart && eend) {
+        switch (dir) {
+        case 1:
+        {
+            *current = (*current + dir < eend) ? *current + dir : estart;
+        } break;
+        case -1:
+        {
+            *current = (*current + dir >= estart) ? *current + dir : eend - 1;
+        } break;
+        }
+        if (!(*current)->is_audio_file) {
+            while ((*current >= estart && *current + 1 < eend) && !(*current)->is_audio_file) {
+                (*current)++;
+            }
+        }
+        assert(*current >= estart && *current < eend);
+        return prepare_next(attempts, *current);
+    }
+    return NULL;
 }
