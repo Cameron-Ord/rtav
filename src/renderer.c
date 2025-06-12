@@ -354,8 +354,8 @@ Renderer_Data load_shaders(void)
         return rd;
     }
 
-    char vertex_src[SHADER_SRC_MAX];
-    char frag_src[SHADER_SRC_MAX];
+    char vertex_src[SHADER_SRC_MAX + 1];
+    char frag_src[SHADER_SRC_MAX + 1];
 
     const int vread = shader_src_fill(fvert, vertex_src);
     const int fread = shader_src_fill(ffrag, frag_src);

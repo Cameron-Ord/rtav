@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.10)
-project(3dmv VERSION 1.0)
+project(rtav VERSION 1.0)
 
 set(SRCS src/main.c src/sys.c src/audio.c src/matrix.c src/renderer.c src/fft.c)
-add_executable(3dmv ${SRCS})
+add_executable(rtav ${SRCS})
 
-set(SHADER_DIR "/usr/local/share/3dmv" CACHE PATH "Path to shader files")
-target_compile_definitions(3dmv PRIVATE SHADER_PATH=\"${SHADER_DIR}\")
+set(SHADER_DIR "/usr/local/share/rtav" CACHE PATH "Path to shader files")
+target_compile_definitions(rtav PRIVATE SHADER_PATH=\"${SHADER_DIR}\")
 message("Shader dir is: ${SHADER_DIR}")
 
 find_library(SDL2_LIB NAMES SDL SDL2 sdl2 libsdl2 sdl)
@@ -30,4 +30,4 @@ if(NOT GLEW_LIB)
 endif()
 
 set(LIBS ${SDL2_LIB} ${OPENGL_LIB} ${GLEW_LIB} ${SND_LIB} m)
-target_link_libraries(3dmv PRIVATE ${LIBS})
+target_link_libraries(rtav PRIVATE ${LIBS})
