@@ -235,8 +235,11 @@ int main(int argc, char **argv)
         }
     }
 
-    p = free_params(p);
+    // Close before freeing params - if there is queued audio after free that would be be bad
+    audio_end();
+    close_device();
 
+    p = free_params(p);
     glDeleteProgram(rd.shader_program_id);
     glDeleteBuffers(1, &rd.VBO);
     glDeleteVertexArrays(1, &rd.VAO);
