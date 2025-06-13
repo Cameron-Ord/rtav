@@ -203,9 +203,6 @@ static int shader_src_fill(FILE *file, char *srcbuf)
         }
         srcbuf[i] = '\0';
         printf("\nLOADED SHADER:\n%s\n", srcbuf);
-        if (fclose(file) == EOF) {
-            printf("Could not close file: %s\n", strerror(errno));
-        }
     }
     return i;
 }
@@ -361,6 +358,23 @@ Renderer_Data load_shaders(void)
     const int fread = shader_src_fill(ffrag, frag_src);
     if (!vread || !fread) {
         printf("Empty shader src\n");
+        return rd;
+    }
+
+    const unsigned long fpos = ftell(ffrag);
+    const unsigned long vpos = ftell(fvert);
+
+    int large = 0;
+    if (fpos >= SHADER_SRC_MAX || vpos >= SHADER_SRC_MAX) {
+        printf("Shader src larger than allowed size\n");
+        large = 1;
+    }
+
+    if (fclose(ffrag) == EOF || fclose(fvert) == EOF) {
+        printf("Failed to close file: %s\n", strerror(errno));
+    }
+
+    if (large) {
         return rd;
     }
 
