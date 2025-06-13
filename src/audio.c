@@ -36,6 +36,15 @@ static void vol_change_commit(float v);
 // return sqrtf(sum / size);
 //}
 
+void fft_push(const uint32_t bytes, const uint32_t offset, const float *srcbuf, float dstbuf[TWOBUFFER])
+{
+    if (bytes > 0 && (srcbuf && dstbuf)) {
+        const size_t samples = bytes / sizeof(float);
+        memmove(dstbuf, dstbuf + samples, bytes);
+        memcpy(dstbuf + samples, srcbuf + offset, bytes);
+    }
+}
+
 static float vclampf(const float v)
 {
     if (v > 1.0) {
@@ -91,6 +100,7 @@ static void callback(void *usrdata, unsigned char *stream, int len)
         }
 
         if (p->position + scount <= p->len) {
+            fft_push(ulen, p->position, p->buffer, p->sample_buffer);
             p->position += scount;
         }
     }

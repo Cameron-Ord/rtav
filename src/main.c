@@ -17,7 +17,6 @@
 
 typedef struct
 {
-    float sample_buffer[BUFFER_SIZE];
     Compf out_buffer[BUFFER_SIZE];
     float out_half[BUFFER_SIZE];
 } Raw;
@@ -142,13 +141,9 @@ int main(int argc, char **argv)
 
         if (p && p->buffer && get_audio_state() == SDL_AUDIO_PLAYING) {
             memset(&raw, 0, sizeof(Raw));
-            const uint32_t remaining = p->len - p->position;
-            const uint32_t scount = _scount(remaining);
-            const float *const buffer_at = p->buffer + p->position;
-            memcpy(raw.sample_buffer, buffer_at, scount * sizeof(float));
-
-            wfunc(raw.sample_buffer, hambuf, BUFFER_SIZE);
-            iter_fft(raw.sample_buffer, raw.out_buffer, BUFFER_SIZE);
+            memset(tf.sums, 0, sizeof(float) * DIVISOR);
+            wfunc(p->sample_buffer, hambuf, BUFFER_SIZE);
+            iter_fft(p->sample_buffer, raw.out_buffer, BUFFER_SIZE);
             compf_to_float(raw.out_half, raw.out_buffer);
             section_bins(p->sr, raw.out_half, tf.sums);
             interpolate(tf.sums, tf.ssmooth, tf.ssmear, 60);
@@ -185,6 +180,7 @@ int main(int argc, char **argv)
                     float cd = 100;
                     if (SDL_GetTicks64() - lastinput >= cd) {
                         audio_end();
+                        wipe(&tf, &raw);
                         p = free_params(p);
                         p = find_queued(&attempts, &current, estart, eend, -1);
                         lastinput = SDL_GetTicks64();
@@ -196,6 +192,7 @@ int main(int argc, char **argv)
                     float cd = 100;
                     if (SDL_GetTicks64() - lastinput >= cd) {
                         audio_end();
+                        wipe(&tf, &raw);
                         p = free_params(p);
                         p = find_queued(&attempts, &current, estart, eend, 1);
                         lastinput = SDL_GetTicks64();

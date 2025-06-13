@@ -5,11 +5,13 @@
 #include <stdint.h>
 
 #define BUFFER_SIZE (1 << 13)
+#define TWOBUFFER   (1 << 14)
 
 typedef struct
 {
     int valid;
     float *buffer;
+    float sample_buffer[TWOBUFFER];
     uint32_t position;
     uint32_t len;
     size_t samples;
@@ -19,6 +21,7 @@ typedef struct
     int sr;
 } AParams;
 
+void fft_push(uint32_t bytes, uint32_t offset, const float srcbuf[], float dstbuf[]);
 int get_audio_state(void);
 void toggle_pause(void);
 AParams *read_file(const char *fp);

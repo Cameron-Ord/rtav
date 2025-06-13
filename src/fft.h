@@ -16,4 +16,5 @@ void iter_fft(float *in, Compf *out, size_t size);
 void compf_to_float(float *half, Compf *fft_output);
 void section_bins(int sr, float *half, float *sums);
 void interpolate(float *sums, float *ssmooth, float *ssmear, int frames);
+
 #endif
