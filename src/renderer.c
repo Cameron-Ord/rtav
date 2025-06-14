@@ -243,12 +243,12 @@ static int will_fit(const float scale)
 
 static int w_greater(const float scale, const float factor, const int w)
 {
-    return RENDER_WIDTH * (scale * factor) > w;
+    return RENDER_WIDTH * (scale * factor) >= w;
 }
 
 static int h_greater(const float scale, const float factor, const int h)
 {
-    return RENDER_HEIGHT * (scale * factor) > h;
+    return RENDER_HEIGHT * (scale * factor) >= h;
 }
 
 static int or_greater(const float scale, const float factor, const int w,
@@ -270,11 +270,18 @@ static float resize_query(const int w, const int h)
         while (scale > smin && or_greater(scale, fdec, w, h)) {
             scale *= fdec;
         }
-    } else if (w > RENDER_WIDTH || h > RENDER_HEIGHT) {
-        while (scale < smax && !both_greater(scale, finc, w, h)) {
+        printf("LESSER SCALE: %.3f\n", scale);
+        return scale;
+    }
+
+    if (w > RENDER_WIDTH || h > RENDER_HEIGHT) {
+        while (scale < smax && !or_greater(scale, finc, w, h)) {
             scale *= finc;
         }
+        printf("GREATER SCALE: %.3f\n", scale);
+        return scale;
     }
+
     return scale;
 }
 
