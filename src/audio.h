@@ -21,7 +21,7 @@ typedef struct
     int sr;
 } AParams;
 
-void fft_push(uint32_t bytes, uint32_t offset, const float srcbuf[], float dstbuf[]);
+void fft_push(uint32_t samples, uint32_t offset, const float srcbuf[], float dstbuf[]);
 int get_audio_state(void);
 void toggle_pause(void);
 AParams *read_file(const char *fp);

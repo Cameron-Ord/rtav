@@ -117,7 +117,7 @@ int parse_headers(Entries *ent)
                 const unsigned char *start = &buffer[0];
                 const unsigned char *end = buffer + 12;
 
-                while (start != end && !matched) {
+                while ((start < end && start != end) && !matched) {
                     if (memcmp(start, literal, len) == 0) {
                         e->is_audio_file = 1;
                         matched = 1, accumulator += 1;

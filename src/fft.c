@@ -5,9 +5,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// heheh
 const int smear = 6;
-const int smooth = 9;
+const int smooth = 8;
 float bins[DIVISOR + 1];
 
 void ema(const float *new, float *old)
@@ -146,8 +145,8 @@ void compf_to_float(float *half, Compf *fft_output)
 
 void gen_bins(const int size)
 {
-    const float MAX_FREQ = 20000.0f;
-    const float MIN_FREQ = 20.0f;
+    const float MAX_FREQ = 4000.0f;
+    const float MIN_FREQ = 60.0f;
     const float RATIO = MAX_FREQ / MIN_FREQ;
     for (int i = 0; i < size; i++) {
         float t = (float)i / (size - 1);
@@ -176,10 +175,12 @@ static void bin_slice(const float freq, const float s, float *sums,
                       float *max)
 {
     for (int j = 0; j < DIVISOR; j++) {
-        if (freq >= bins[j] && freq < bins[j + 1]) {
+        if (freq >= bins[j] && freq <= bins[j + 1]) {
             if (s > sums[j]) {
                 sums[j] = s;
             }
+
+            // sums[j] += s;
 
             if (sums[j] > *max) {
                 *max = sums[j];
@@ -193,13 +194,15 @@ void section_bins(const int sr, float *half, float *sums)
 {
     const int half_size = BUFFER_SIZE / 2;
     float max = 1.0f;
-    for (int i = 0; i < half_size; i++) {
+    for (int i = 0; i < half_size && i * ((float)sr / BUFFER_SIZE) <= 4000.0f; i++) {
         const float freq = i * ((float)sr / BUFFER_SIZE);
         bin_slice(freq, half[i], sums, &max);
     }
 
     for (int l = 0; l < DIVISOR; l++) {
-        sums[l] /= max;
+        if (sums[l] > 0.0) {
+            sums[l] /= max;
+        }
     }
 }
 

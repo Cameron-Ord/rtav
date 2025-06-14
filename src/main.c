@@ -129,8 +129,9 @@ int main(int argc, char **argv)
         if (song_queued && p) {
             audio_end();
             wipe(&tf, &raw);
-            p = free_params(p);
+            AParams *tmp = p;
             p = find_queued(&attempts, &current, estart, eend, 1);
+            tmp = free_params(tmp);
 
         } else if (!song_queued && !p) {
             audio_end();
@@ -142,10 +143,13 @@ int main(int argc, char **argv)
         }
 
         if (p && p->buffer && get_audio_state() == SDL_AUDIO_PLAYING) {
+            float snapshot[BUFFER_SIZE];
             memset(&raw, 0, sizeof(Raw));
             memset(tf.sums, 0, sizeof(float) * DIVISOR);
-            wfunc(p->sample_buffer, hambuf, BUFFER_SIZE);
-            iter_fft(p->sample_buffer, raw.out_buffer, BUFFER_SIZE);
+            memcpy(snapshot, p->sample_buffer, sizeof(float) * BUFFER_SIZE);
+
+            wfunc(snapshot, hambuf, BUFFER_SIZE);
+            iter_fft(snapshot, raw.out_buffer, BUFFER_SIZE);
             compf_to_float(raw.out_half, raw.out_buffer);
             section_bins(p->sr, raw.out_half, tf.sums);
             interpolate(tf.sums, tf.ssmooth, tf.ssmear, 60);
@@ -183,8 +187,9 @@ int main(int argc, char **argv)
                     if (SDL_GetTicks64() - lastinput >= cd) {
                         audio_end();
                         wipe(&tf, &raw);
-                        p = free_params(p);
+                        AParams *tmp = p;
                         p = find_queued(&attempts, &current, estart, eend, -1);
+                        tmp = free_params(tmp);
                         lastinput = SDL_GetTicks64();
                     }
                 } break;
@@ -195,8 +200,9 @@ int main(int argc, char **argv)
                     if (SDL_GetTicks64() - lastinput >= cd) {
                         audio_end();
                         wipe(&tf, &raw);
-                        p = free_params(p);
+                        AParams *tmp = p;
                         p = find_queued(&attempts, &current, estart, eend, 1);
+                        tmp = free_params(tmp);
                         lastinput = SDL_GetTicks64();
                     }
                 } break;
@@ -365,6 +371,7 @@ static AParams *find_queued(int *attempts, const Entry **current, const Entry *c
             *current = (*current + dir >= estart) ? *current + dir : eend - 1;
         } break;
         }
+
         if (!(*current)->is_audio_file) {
             while ((*current >= estart && *current + 1 < eend) && !(*current)->is_audio_file) {
                 (*current)++;

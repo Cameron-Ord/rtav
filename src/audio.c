@@ -15,18 +15,24 @@ typedef struct
 float vol = 1.0f;
 
 SDL_AudioDeviceID dev;
-SDL_AudioSpec spec = { 0 };
+SDL_AudioSpec want = { 0 }, have = { 0 };
 
 // The only exposed function in this file should be read_file(),
 // toggle_pause() and _vol(), the state is handled internally in this src file
 
-static int scmp(AParams *data);
 static void callback(void *usrdata, unsigned char *stream, int len);
 static void set_audio_spec(AParams *data);
 static int open_device(void);
 static const char *format_to_str(int format);
 static float vclampf(float v);
 static void vol_change_commit(float v);
+static void print_want_have(void);
+
+static void print_want_have(void)
+{
+    printf("WANT: %d %d %d %d %d %d\n", want.channels, want.format, want.freq, want.samples, want.silence, want.size);
+    printf("HAVE: %d %d %d %d %d %d\n", have.channels, have.format, have.freq, have.samples, have.silence, have.size);
+}
 
 // float root_mean_squared(const float *slice, const size_t size) {
 // float sum = 0.0f;
@@ -36,12 +42,11 @@ static void vol_change_commit(float v);
 // return sqrtf(sum / size);
 //}
 
-void fft_push(const uint32_t bytes, const uint32_t offset, const float *srcbuf, float dstbuf[TWOBUFFER])
+void fft_push(const uint32_t samples, const uint32_t offset, const float *srcbuf, float dstbuf[TWOBUFFER])
 {
-    if (bytes > 0 && (srcbuf && dstbuf)) {
-        const size_t samples = bytes / sizeof(float);
-        memmove(dstbuf, dstbuf + samples, bytes);
-        memcpy(dstbuf + samples, srcbuf + offset, bytes);
+    if (samples > 0 && (srcbuf && dstbuf)) {
+        memmove(dstbuf, dstbuf + samples, samples * sizeof(float));
+        memcpy(dstbuf + samples, srcbuf + offset, samples * sizeof(float));
     }
 }
 
@@ -94,60 +99,39 @@ static void callback(void *usrdata, unsigned char *stream, int len)
         // used) is spec'd to store its samples in interleaved format, so just pass
         // the data to stream as is.
         for (uint32_t i = 0; i < scount; i++) {
+            fstream[i] = 0.0f;
             if (i + p->position < p->len) {
                 fstream[i] = p->buffer[i + p->position] * vol;
             }
         }
 
         if (p->position + scount <= p->len) {
-            fft_push(ulen, p->position, p->buffer, p->sample_buffer);
+            fft_push(samples, p->position, p->buffer, p->sample_buffer);
             p->position += scount;
         }
     }
 }
 
-static int scmp(AParams *data)
-{
-    if (!spec.callback) {
-        return 0;
-    }
-
-    if (spec.format != AUDIO_F32SYS) {
-        return 0;
-    }
-
-    if (spec.channels != data->channels) {
-        return 0;
-    }
-
-    if (spec.freq != data->sr) {
-        return 0;
-    }
-
-    if (spec.samples != (1 << 13) / data->channels) {
-        return 0;
-    }
-
-    return 1;
-}
-
 static void set_audio_spec(AParams *const data)
 {
-    spec.userdata = data;
-    spec.callback = callback;
-    spec.channels = data->channels;
-    spec.freq = data->sr;
-    spec.format = AUDIO_F32SYS;
-    spec.samples = BUFFER_SIZE / data->channels;
+    want.userdata = data;
+    want.callback = callback;
+    want.channels = data->channels;
+    want.freq = data->sr;
+    want.format = AUDIO_F32SYS;
+    want.samples = BUFFER_SIZE / data->channels;
+    want.silence = 0.0f;
+    want.size = BUFFER_SIZE * sizeof(float);
 }
 
 static int open_device(void)
 {
-    dev = SDL_OpenAudioDevice(NULL, 0, &spec, NULL, 0);
+    dev = SDL_OpenAudioDevice(NULL, 0, &want, &have, SDL_AUDIO_ALLOW_ANY_CHANGE);
     if (!dev) {
         printf("Could not open audio device : %s\n", SDL_GetError());
         return 0;
     }
+    print_want_have();
     return 1;
 }
 
@@ -155,7 +139,9 @@ static int open_device(void)
 void close_device(void)
 {
     if (dev) {
-        SDL_ClearQueuedAudio(dev);
+        if (get_audio_state() == SDL_AUDIO_PLAYING) {
+            audio_end();
+        }
         SDL_CloseAudioDevice(dev);
         dev = 0;
     }
@@ -189,8 +175,18 @@ void toggle_pause(void)
     }
 }
 
-void audio_start(void) { SDL_PauseAudioDevice(dev, SDL_FALSE); }
-void audio_end(void) { SDL_PauseAudioDevice(dev, SDL_TRUE); }
+void audio_start(void)
+{
+    if (dev) {
+        SDL_PauseAudioDevice(dev, SDL_FALSE);
+    }
+}
+void audio_end(void)
+{
+    if (dev) {
+        SDL_PauseAudioDevice(dev, SDL_TRUE);
+    }
+}
 static const char *format_to_str(const int format)
 {
     const mask_ret fmasks[] = {
