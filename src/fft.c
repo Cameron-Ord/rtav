@@ -142,7 +142,7 @@ void gen_bins(const int size)
     const float MIN_FREQ = 20.0f;
     const float RATIO = MAX_FREQ / MIN_FREQ;
     for (int i = 0; i < size; i++) {
-        float t = (float)i / size;
+        float t = (float)i / (size - 1);
         // BASE * POSITION
         // 20 * 1000^0.95 = 14158..
         // 20 * 1000^0.98 = 17419..
@@ -150,6 +150,18 @@ void gen_bins(const int size)
         float k = MIN_FREQ * powf(RATIO, t);
         bins[i] = k;
     }
+
+    printf("====BINS====\n");
+    int newline = 0;
+    for (int k = 0; k < size; k++) {
+        printf("%.3f ", bins[k]);
+        if (newline > DIVISOR / 4) {
+            printf("\n");
+            newline = 0;
+        }
+        newline++;
+    }
+    printf("\n");
 }
 
 static void bin_slice(const float freq, const float s, float *sums,

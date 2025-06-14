@@ -127,11 +127,13 @@ int main(int argc, char **argv)
 
         song_queued = query_audio_position(&p);
         if (song_queued && p) {
+            audio_end();
             wipe(&tf, &raw);
             p = free_params(p);
             p = find_queued(&attempts, &current, estart, eend, 1);
 
         } else if (!song_queued && !p) {
+            audio_end();
             wipe(&tf, &raw);
             p = find_queued(&attempts, &current, estart, eend, 1);
             if (!p && attempts > MAX_ATTEMPTS) {
