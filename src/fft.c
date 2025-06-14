@@ -10,6 +10,14 @@ const int smear = 6;
 const int smooth = 9;
 float bins[DIVISOR + 1];
 
+void ema(const float *new, float *old)
+{
+    const float a = 0.1;
+    for (int i = 0; i < DIVISOR; i++) {
+        old[i] = (a * new[i]) + ((1.0 - a) * old[i]);
+    }
+}
+
 static inline Compf c_from_real(const float real)
 {
     Compf _complex;
@@ -151,17 +159,17 @@ void gen_bins(const int size)
         bins[i] = k;
     }
 
-    printf("====BINS====\n");
+    printf("\n====BINS====\n");
     int newline = 0;
     for (int k = 0; k < size; k++) {
         printf("%.3f ", bins[k]);
-        if (newline > DIVISOR / 4) {
+        newline++;
+        if (newline >= DIVISOR / 4) {
             printf("\n");
             newline = 0;
         }
-        newline++;
     }
-    printf("\n");
+    printf("\n====BINS====\n");
 }
 
 static void bin_slice(const float freq, const float s, float *sums,
@@ -169,7 +177,10 @@ static void bin_slice(const float freq, const float s, float *sums,
 {
     for (int j = 0; j < DIVISOR; j++) {
         if (freq >= bins[j] && freq < bins[j + 1]) {
-            sums[j] += s;
+            if (s > sums[j]) {
+                sums[j] = s;
+            }
+
             if (sums[j] > *max) {
                 *max = sums[j];
             }
@@ -183,7 +194,7 @@ void section_bins(const int sr, float *half, float *sums)
     const int half_size = BUFFER_SIZE / 2;
     float max = 1.0f;
     for (int i = 0; i < half_size; i++) {
-        const float freq = i * (float)sr / BUFFER_SIZE;
+        const float freq = i * ((float)sr / BUFFER_SIZE);
         bin_slice(freq, half[i], sums, &max);
     }
 

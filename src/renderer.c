@@ -270,7 +270,6 @@ static float resize_query(const int w, const int h)
         while (scale > smin && or_greater(scale, fdec, w, h)) {
             scale *= fdec;
         }
-        printf("LESSER SCALE: %.3f\n", scale);
         return scale;
     }
 
@@ -278,7 +277,6 @@ static float resize_query(const int w, const int h)
         while (scale < smax && !or_greater(scale, finc, w, h)) {
             scale *= finc;
         }
-        printf("GREATER SCALE: %.3f\n", scale);
         return scale;
     }
 
