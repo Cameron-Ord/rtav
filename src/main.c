@@ -14,6 +14,7 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
 #include <assert.h>
+#include <errno.h>
 #include <time.h>
 
 typedef struct
@@ -29,7 +30,7 @@ typedef struct
     float ssmear[DIVISOR];
 } Transformed;
 
-static SDL_Window *make_window(void);
+static SDL_Window *make_window(const char *argv);
 static AParams *begin_audio_file(const Entry *e);
 static AParams *__begin_bad(AParams *p);
 static AParams *__begin_ok(AParams *p);
@@ -75,7 +76,7 @@ int main(int argc, char **argv)
     }
     sdl_gl_set_flags();
 
-    SDL_Window *const win = make_window();
+    SDL_Window *const win = make_window(directory);
     if (!win) {
         printf("Failed to create window : %s\n", SDL_GetError());
         return 1;
@@ -257,12 +258,31 @@ int main(int argc, char **argv)
     return 0;
 }
 
-static SDL_Window *make_window(void)
+static SDL_Window *make_window(const char *argv)
 {
+
+    const char *nameptr = NULL;
+    const char *win_name = "rtav";
+
+    const size_t arg_len = strlen(argv);
+    const size_t name_len = strlen(win_name);
+    // + 2 for space and NULL terminator
+    const size_t buffer_len = arg_len + name_len + 2;
+
+    char namebuffer[buffer_len];
+    memset(namebuffer, 0, sizeof(char) * buffer_len);
+
+    if (!snprintf(namebuffer, buffer_len, "%s %s", win_name, argv)) {
+        printf("Failed to concatenate: %s\n", strerror(errno));
+        nameptr = win_name;
+    } else {
+        nameptr = namebuffer;
+    }
+
     const int flags =
         SDL_WINDOW_HIDDEN | SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
     SDL_Window *win =
-        SDL_CreateWindow("3DMV", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+        SDL_CreateWindow(nameptr, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                          RENDER_WIDTH, RENDER_HEIGHT, flags);
     return win;
 }
