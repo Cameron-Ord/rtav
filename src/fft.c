@@ -129,7 +129,7 @@ void calculate_window(float *hambuf)
 {
     const float PI = 3.14159265359f;
     for (int i = 0; i < BUFFER_SIZE; ++i) {
-        float t = (float)i / BUFFER_SIZE - 1;
+        float t = (float)i / (BUFFER_SIZE - 1);
         hambuf[i] = 0.54 - 0.46 * cosf(2 * PI * t);
     }
 }
