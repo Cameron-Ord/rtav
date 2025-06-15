@@ -145,8 +145,12 @@ void gl_draw_buffer(Renderer_Data *rd, const float *smthframes,
 
     MatObj mo = load_mat_obj();
     mat_view_translate(&mo, 0.0, 0.0, -10.0);
+
+    // 4:3 AR
     const float wspacing = model_width / 4;
-    const float hspacing = model_height / 4;
+    const float hspacing = model_height / 3;
+
+    printf("%.3f %.3f %.3f %.3f\n", wspacing, hspacing, model_width, model_height);
 
     for (int i = 0; i < DIVISOR; i++) {
         const float xpos = i * model_width + wspacing / 2;
