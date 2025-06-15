@@ -106,7 +106,7 @@ static void callback(void *usrdata, unsigned char *stream, int len)
         }
 
         if (p->position + scount <= p->len) {
-            fft_push(samples, p->position, p->buffer, p->sample_buffer);
+            fft_push(scount, p->position, p->buffer, p->sample_buffer);
             p->position += scount;
         }
     }
