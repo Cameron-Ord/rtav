@@ -145,7 +145,7 @@ void compf_to_float(float *half, Compf *fft_output)
 
 void gen_bins(const int size)
 {
-    const float MAX_FREQ = 4000.0f;
+    const float MAX_FREQ = 6000.0f;
     const float MIN_FREQ = 60.0f;
     const float RATIO = MAX_FREQ / MIN_FREQ;
     for (int i = 0; i < size; i++) {
@@ -194,7 +194,7 @@ void section_bins(const int sr, float *half, float *sums)
 {
     const int half_size = BUFFER_SIZE / 2;
     float max = 1.0f;
-    for (int i = 0; i < half_size && i * ((float)sr / BUFFER_SIZE) <= 4000.0f; i++) {
+    for (int i = 0; i < half_size && i * ((float)sr / BUFFER_SIZE) <= 6000.0f; i++) {
         const float freq = i * ((float)sr / BUFFER_SIZE);
         bin_slice(freq, half[i], sums, &max);
     }

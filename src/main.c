@@ -125,36 +125,6 @@ int main(int argc, char **argv)
         const uint32_t start = SDL_GetTicks64();
         gl_clear_canvas();
 
-        song_queued = query_audio_position(&p);
-        if (song_queued && p) {
-            audio_end();
-            wipe(&tf, &raw);
-            AParams *tmp = p;
-            p = find_queued(&attempts, &current, estart, eend, 1);
-            tmp = free_params(tmp);
-
-        } else if (!song_queued && !p) {
-            audio_end();
-            wipe(&tf, &raw);
-            p = find_queued(&attempts, &current, estart, eend, 1);
-            if (!p && attempts > MAX_ATTEMPTS) {
-                _fail(&run, attempts);
-            }
-        }
-
-        if (p && p->buffer && get_audio_state() == SDL_AUDIO_PLAYING) {
-            float snapshot[BUFFER_SIZE];
-            memset(&raw, 0, sizeof(Raw));
-            memset(tf.sums, 0, sizeof(float) * DIVISOR);
-            memcpy(snapshot, p->sample_buffer, sizeof(float) * BUFFER_SIZE);
-
-            wfunc(snapshot, hambuf, BUFFER_SIZE);
-            iter_fft(snapshot, raw.out_buffer, BUFFER_SIZE);
-            compf_to_float(raw.out_half, raw.out_buffer);
-            section_bins(p->sr, raw.out_half, tf.sums);
-            interpolate(tf.sums, tf.ssmooth, tf.ssmear, 60);
-        }
-
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
             switch (e.type) {
@@ -227,6 +197,36 @@ int main(int argc, char **argv)
                 run = 0;
             } break;
             }
+        }
+
+        song_queued = query_audio_position(&p);
+        if (song_queued && p) {
+            audio_end();
+            wipe(&tf, &raw);
+            AParams *tmp = p;
+            p = find_queued(&attempts, &current, estart, eend, 1);
+            tmp = free_params(tmp);
+
+        } else if (!song_queued && !p) {
+            audio_end();
+            wipe(&tf, &raw);
+            p = find_queued(&attempts, &current, estart, eend, 1);
+            if (!p && attempts > MAX_ATTEMPTS) {
+                _fail(&run, attempts);
+            }
+        }
+
+        if (p && p->buffer && get_audio_state() == SDL_AUDIO_PLAYING) {
+            float snapshot[BUFFER_SIZE];
+            memset(&raw, 0, sizeof(Raw));
+            memset(tf.sums, 0, sizeof(float) * DIVISOR);
+            memcpy(snapshot, p->sample_buffer, sizeof(float) * BUFFER_SIZE);
+
+            wfunc(snapshot, hambuf, BUFFER_SIZE);
+            iter_fft(snapshot, raw.out_buffer, BUFFER_SIZE);
+            compf_to_float(raw.out_half, raw.out_buffer);
+            section_bins(p->sr, raw.out_half, tf.sums);
+            interpolate(tf.sums, tf.ssmooth, tf.ssmear, 60);
         }
 
         gl_draw_buffer(&rd, tf.ssmooth, tf.ssmear);
