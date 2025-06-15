@@ -1,5 +1,6 @@
 #include <GL/glew.h>
 #include <SDL2/SDL_timer.h>
+#include <SDL2/SDL_video.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -119,6 +120,7 @@ int main(int argc, char **argv)
     int run = 1;
 
     uint32_t lastinput = SDL_GetTicks64();
+    SDL_EnableScreenSaver();
     SDL_ShowWindow(win);
 
     while (run) {
