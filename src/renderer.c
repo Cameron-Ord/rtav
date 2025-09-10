@@ -270,7 +270,6 @@ static int w_lesser(const float scale, const int w)
 
 static int and_lesser(const float scale, const int w, const int h, const float factor)
 {
-    printf("%f-%f\n", scale, scale + factor);
     if (w_lesser(scale + factor, w) && h_lesser(scale + factor, h)) {
         return 1;
     } else {
