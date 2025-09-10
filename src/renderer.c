@@ -12,10 +12,9 @@
 #include <SDL2/SDL_timer.h>
 #include <SDL2/SDL_video.h>
 
-const float smin = 0.1;
-const float smax = 4.0;
-const float fdec = 0.99;
-const float finc = 1.01;
+const float smin = 0.25f;
+const float smax = 3.0f;
+const float scale_mod = 0.25;
 
 typedef struct
 {
@@ -239,48 +238,61 @@ void gl_clear_canvas(void)
     glClear(GL_COLOR_BUFFER_BIT);
 }
 
-static int will_fit(const float scale)
+static int w_greater(const float scale, const int w)
 {
-    return (int)(RENDER_HEIGHT * scale) % DIVISOR == 0 &&
-           (int)(RENDER_WIDTH * scale) % DIVISOR == 0;
+    return (RENDER_WIDTH * (scale) > w);
 }
 
-static int w_greater(const float scale, const float factor, const int w)
+static int h_greater(const float scale, const int h)
 {
-    return RENDER_WIDTH * (scale * factor) >= w;
+    return (RENDER_HEIGHT * (scale) > h);
 }
 
-static int h_greater(const float scale, const float factor, const int h)
+static int or_greater(const float scale, const int w,
+                      const int h, const float factor)
 {
-    return RENDER_HEIGHT * (scale * factor) >= h;
+    if (w_greater(scale + factor, w) || h_greater(scale + factor, h)) {
+        return 1;
+    } else {
+        return 0;
+    }
 }
 
-static int or_greater(const float scale, const float factor, const int w,
-                      const int h)
+static int h_lesser(const float scale, const int h)
 {
-    return w_greater(scale, factor, w) || h_greater(scale, factor, h);
+    return (RENDER_HEIGHT * (scale) < h);
 }
 
-static int both_greater(const float scale, const float factor, const int w,
-                        const int h)
+static int w_lesser(const float scale, const int w)
 {
-    return w_greater(scale, factor, w) && h_greater(scale, factor, h);
+    return (RENDER_WIDTH * (scale) < w);
 }
 
-static float resize_query(const int w, const int h)
+static int and_lesser(const float scale, const int w, const int h, const float factor)
 {
-    float scale = 1.0f;
+    printf("%f-%f\n", scale, scale + factor);
+    if (w_lesser(scale + factor, w) && h_lesser(scale + factor, h)) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+static float resize_query(const int w, const int h, float scale, int attempt)
+{
     if (w < RENDER_WIDTH || h < RENDER_HEIGHT) {
-        while (scale > smin && or_greater(scale, fdec, w, h)) {
-            scale *= fdec;
+        while ((scale - scale_mod) > smin && !and_lesser(scale, w, h, 0.0f)) {
+            scale -= scale_mod;
         }
+
         return scale;
     }
 
     if (w > RENDER_WIDTH || h > RENDER_HEIGHT) {
-        while (scale < smax && !or_greater(scale, finc, w, h)) {
-            scale *= finc;
+        while ((scale + scale_mod) < smax && !or_greater(scale, w, h, scale_mod)) {
+            scale += scale_mod;
         }
+
         return scale;
     }
 
@@ -292,7 +304,7 @@ void gl_viewport_update(SDL_Window *w, int *ww, int *wh)
     SDL_GetWindowSize(w, ww, wh);
     // Todo: scale this by multiples/divisions of the base render size
     // dynamically
-    const float scale = resize_query(*ww, *wh);
+    const float scale = resize_query(*ww, *wh, 1.0f, 0);
 
     const int basew = RENDER_WIDTH * scale;
     const int baseh = RENDER_HEIGHT * scale;
