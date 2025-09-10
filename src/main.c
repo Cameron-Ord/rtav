@@ -58,7 +58,6 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    // Todo : cleanup if this happens.
     if (ents.malformed) {
         if (ents.list) {
             free(ents.list);
@@ -66,6 +65,7 @@ int main(int argc, char **argv)
         printf("Error occured while reading dir entries\n");
         return 1;
     }
+    printf("Gathered %zu file paths without errors\n", ents.size);
 
     if (parse_headers(&ents) == 0) {
         printf("Directory contains no audio files\n");

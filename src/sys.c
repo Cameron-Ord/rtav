@@ -73,7 +73,6 @@ Entries read_directory(const char *path)
 
         i++;
     }
-    printf("Gathered %d file paths without errors\n", i);
     return *dirp_ret(0, &ents, dirp);
 }
 
