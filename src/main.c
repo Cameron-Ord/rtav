@@ -68,6 +68,9 @@ int main(int argc, char **argv)
     printf("Gathered %zu file paths without errors\n", ents.size);
 
     if (parse_headers(&ents) == 0) {
+        if (ents.list) {
+            free(ents.list);
+        }
         printf("Directory contains no audio files\n");
         return 1;
     }
@@ -75,6 +78,9 @@ int main(int argc, char **argv)
 
     if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_EVENTS | SDL_INIT_VIDEO) < 0) {
         printf("Could not initialize SDL2: %s\n", SDL_GetError());
+        if (ents.list) {
+            free(ents.list);
+        }
         return 1;
     }
     sdl_gl_set_flags();
@@ -82,17 +88,35 @@ int main(int argc, char **argv)
     SDL_Window *const win = make_window(directory);
     if (!win) {
         printf("Failed to create window : %s\n", SDL_GetError());
+        if (ents.list) {
+            free(ents.list);
+        }
+
+        SDL_Quit();
         return 1;
     }
 
     SDL_GLContext *const glcontext = SDL_GL_CreateContext(win);
     if (!glcontext) {
         printf("Failed to create OpenGL context : %s\n", SDL_GetError());
+        if (ents.list) {
+            free(ents.list);
+        }
+
+        SDL_DestroyWindow(win);
+        SDL_Quit();
         return 1;
     }
 
     if (glewInit() != GLEW_OK) {
         printf("Failed to initialize libGLEW\n");
+        if (ents.list) {
+            free(ents.list);
+        }
+
+        SDL_GL_DeleteContext(glcontext);
+        SDL_DestroyWindow(win);
+        SDL_Quit();
         return 1;
     }
 
@@ -103,6 +127,13 @@ int main(int argc, char **argv)
 
     Renderer_Data rd = load_shaders();
     if (rd.broken) {
+        if (ents.list) {
+            free(ents.list);
+        }
+
+        SDL_GL_DeleteContext(glcontext);
+        SDL_DestroyWindow(win);
+        SDL_Quit();
         return 1;
     }
     gl_data_construct(&rd);
