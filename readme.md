@@ -1,5 +1,6 @@
 ## rtav 
 ### visualizing music with opengl
+[Video Example (youtube)](https://www.youtube.com/watch?v=NchUZJVyOnU)
 ![Example](example.png)
 ### deps
 1. GLEW & LibGL - Rendering
