@@ -19,20 +19,20 @@ static Entries *dirp_ret(const int broken, Entries *const ents,
 
 Entries read_directory(const char *path)
 {
-    Entries ents = { NULL, 0, 0 };
+    // list ptr size broken
+    Entries ents = { NULL, 1, 0 };
     DIR *dirp = dirp = opendir(path);
     if (!dirp) {
         printf("Could not open directory : %s\n", strerror(errno));
         return *dirp_ret(1, &ents, NULL);
     }
 
-    int size = 1;
-    Entry *entbuf = calloc(size, sizeof(Entry));
-    if (!entbuf) {
+    ents.list = calloc(ents.size, sizeof(Entry));
+    if (!ents.list) {
         printf("Could not allocate memory : %s\n", strerror(errno));
         return *dirp_ret(1, &ents, dirp);
     }
-    ents.list = entbuf;
+
     struct dirent *d_ent;
     int i = 0;
     while ((d_ent = readdir(dirp)) != NULL) {
@@ -40,19 +40,18 @@ Entries read_directory(const char *path)
             continue;
         }
 
-        if (i >= size) {
-            size++;
-            Entry *tmp = realloc(entbuf, size * sizeof(Entry));
+        if (i >= ents.size) {
+            int new_size = ents.size + 1;
+            Entry *tmp = realloc(ents.list, new_size * sizeof(Entry));
             if (!tmp) {
                 printf("Realloc failed : %s\n", strerror(errno));
                 return *dirp_ret(1, &ents, dirp);
             }
-            entbuf = tmp;
-            ents.list = entbuf;
+            ents.size++;
+            ents.list = tmp;
         }
 
-        Entry *e = &entbuf[i];
-
+        Entry *const e = &ents.list[i];
         e->is_audio_file = 0;
         e->namelen = strlen(d_ent->d_name);
         e->pathlen = strlen(path);
@@ -72,7 +71,6 @@ Entries read_directory(const char *path)
             return *dirp_ret(1, &ents, dirp);
         }
 
-        ents.size = size;
         i++;
     }
     printf("Gathered %d file paths without errors\n", i);

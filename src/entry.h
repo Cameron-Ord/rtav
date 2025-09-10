@@ -5,20 +5,22 @@
 struct __dirstream;
 typedef struct __dirstream DIR;
 
-typedef struct {
-  char name[NAME_MAX + 1];
-  char path[PATH_MAX + 1];
-  char fullpath[PATH_MAX + 1];
-  size_t fplen;
-  size_t namelen;
-  size_t pathlen;
-  int is_audio_file;
+typedef struct
+{
+    char name[NAME_MAX + 1];
+    char path[PATH_MAX + 1];
+    char fullpath[PATH_MAX + 1];
+    size_t fplen;
+    size_t namelen;
+    size_t pathlen;
+    int is_audio_file;
 } Entry;
 
-typedef struct {
-  Entry *list;
-  size_t size;
-  int malformed;
+typedef struct
+{
+    Entry *list;
+    size_t size;
+    int malformed;
 } Entries;
 
 int parse_headers(Entries *ent);

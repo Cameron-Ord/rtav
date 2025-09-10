@@ -60,6 +60,9 @@ int main(int argc, char **argv)
 
     // Todo : cleanup if this happens.
     if (ents.malformed) {
+        if (ents.list) {
+            free(ents.list);
+        }
         printf("Error occured while reading dir entries\n");
         return 1;
     }
@@ -248,6 +251,10 @@ int main(int argc, char **argv)
     close_device();
 
     p = free_params(p);
+    if (ents.list) {
+        free(ents.list);
+    }
+
     glDeleteProgram(rd.shader_program_id);
     glDeleteBuffers(1, &rd.VBO);
     glDeleteVertexArrays(1, &rd.VAO);
@@ -255,6 +262,7 @@ int main(int argc, char **argv)
     SDL_GL_DeleteContext(glcontext);
     SDL_DestroyWindow(win);
     SDL_Quit();
+
     return 0;
 }
 
