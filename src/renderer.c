@@ -12,9 +12,9 @@
 #include <SDL2/SDL_timer.h>
 #include <SDL2/SDL_video.h>
 
-const float smin = 0.25f;
+const float smin = 0.5f;
 const float smax = 3.0f;
-const float scale_mod = 0.25;
+const float scale_mod = 0.5;
 
 typedef struct
 {
@@ -248,10 +248,10 @@ static int h_greater(const float scale, const int h)
     return (RENDER_HEIGHT * (scale) > h);
 }
 
-static int or_greater(const float scale, const int w,
-                      const int h, const float factor)
+static int and_greater(const float scale, const int w,
+                       const int h, const float factor)
 {
-    if (w_greater(scale + factor, w) || h_greater(scale + factor, h)) {
+    if (w_greater(scale + factor, w) && h_greater(scale + factor, h)) {
         return 1;
     } else {
         return 0;
@@ -280,15 +280,25 @@ static int and_lesser(const float scale, const int w, const int h, const float f
 static float resize_query(const int w, const int h, float scale, int attempt)
 {
     if (w < RENDER_WIDTH || h < RENDER_HEIGHT) {
-        while ((scale - scale_mod) > smin && !and_lesser(scale, w, h, 0.0f)) {
+        while ((scale - scale_mod) >= smin && !and_lesser(scale, w, h, 0.0f)) {
             scale -= scale_mod;
+        }
+
+        // If its this small, forget trying to maintain aspect ratio.
+        if (scale == smin) {
+            const float dec = 0.05;
+            const float absmin = 0.1;
+            // Just use !and_lesser inside loop and not also in above if statement, as it doesnt matter it will break if its not true anyway.
+            while ((scale - dec) > absmin && !and_lesser(scale, w, h, 0.0f)) {
+                scale -= dec;
+            }
         }
 
         return scale;
     }
 
     if (w > RENDER_WIDTH || h > RENDER_HEIGHT) {
-        while ((scale + scale_mod) < smax && !or_greater(scale, w, h, scale_mod)) {
+        while ((scale + scale_mod) <= smax && and_lesser(scale, w, h, scale_mod)) {
             scale += scale_mod;
         }
 
