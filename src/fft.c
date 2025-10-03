@@ -9,8 +9,8 @@ const int smear = 8;
 const int smooth = 8;
 float bins[DIVISOR + 1];
 
-const float MAX_FREQ = 5000.0f;
-const float MIN_FREQ = 60.0f;
+const float MAX_FREQ = 8000.0f;
+const float MIN_FREQ = 100.0f;
 const float RATIO = MAX_FREQ / MIN_FREQ;
 
 void ema(const float *new, float *old)
